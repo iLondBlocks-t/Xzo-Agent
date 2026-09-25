@@ -46,6 +46,35 @@ class ToolContext(
     val emit: suspend (String) -> Unit = {}
 )
 
+/** Compact, persistable description of what the user attached to a message. */
+@kotlinx.serialization.Serializable
+data class AttachmentRef(
+    val name: String,
+    val uri: String,
+    val image: Boolean
+) {
+    companion object {
+        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+        fun encode(attachments: List<Attachment>): String? =
+            if (attachments.isEmpty()) null
+            else json.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(serializer()),
+                attachments.map { AttachmentRef(it.name, it.uri, it.isImage) }
+            )
+
+        fun decode(raw: String?): List<AttachmentRef> {
+            if (raw.isNullOrBlank()) return emptyList()
+            return runCatching {
+                json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(serializer()), raw)
+            }.getOrElse {
+                // Older rows stored a plain comma-separated list of names.
+                raw.split(",").map { n -> AttachmentRef(n.trim(), "", false) }.filter { it.name.isNotBlank() }
+            }
+        }
+    }
+}
+
 data class Attachment(
     val name: String,
     val mime: String,

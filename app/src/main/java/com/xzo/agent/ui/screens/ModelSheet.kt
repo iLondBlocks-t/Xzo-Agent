@@ -61,8 +61,20 @@ fun ModelSheet(state: ChatUiState, vm: ChatViewModel, onDismiss: () -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
 
-            androidx.compose.material3.TextButton(onClick = { vm.refreshModels() }) {
-                Text(if (state.refreshingModels) "Refreshing…" else "Refresh live model list")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.TextButton(onClick = { vm.refreshModels() }) {
+                    Text(if (state.refreshingModels) "Refreshing…" else "Refresh list")
+                }
+                androidx.compose.material3.TextButton(
+                    onClick = { vm.pinModelToChat(state.settings.primaryModel) }
+                ) { Text("Pin to this chat") }
+            }
+            state.conversationModel?.let {
+                Text(
+                    "This chat is pinned to ${vm.modelLabel(it)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             val groqModels = state.models.filter { it.provider == com.xzo.agent.data.remote.Provider.GROQ }

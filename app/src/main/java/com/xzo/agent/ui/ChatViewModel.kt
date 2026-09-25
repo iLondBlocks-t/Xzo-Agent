@@ -55,7 +55,10 @@ data class ChatUiState(
     val keyChecks: Map<com.xzo.agent.data.remote.Provider, com.xzo.agent.data.remote.LlmClient.KeyCheck> = emptyMap(),
     val checkingKey: com.xzo.agent.data.remote.Provider? = null,
     val needsSetup: Boolean = false,
-    val followUps: List<String> = emptyList()
+    val followUps: List<String> = emptyList(),
+    /** Brain pinned to this conversation; null means follow the global setting. */
+    val conversationModel: String? = null,
+    val undoDelete: com.xzo.agent.data.db.ConversationEntity? = null
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -97,7 +100,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             @Suppress("OPT_IN_USAGE")
             currentId.flatMapLatest { id -> repo.conversation(id) }
-                .collectLatest { c -> _state.update { it.copy(title = c?.title ?: "New chat") } }
+                .collectLatest { c ->
+                _state.update {
+                    it.copy(
+                        title = c?.title ?: "New chat",
+                        conversationModel = c?.modelId?.let { id ->
+                            com.xzo.agent.data.remote.ModelCatalog.migrate(id)
+                        }
+                    )
+                }
+            }
         }
         viewModelScope.launch {
             container.modelRegistry.models.collectLatest { m -> _state.update { it.copy(models = m) } }
@@ -135,12 +147,31 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteChat(id: Long) = viewModelScope.launch {
+        val snapshot = repo.snapshotConversation(id)
+        _state.update { it.copy(undoDelete = snapshot?.first) }
+        pendingUndo = snapshot
         repo.deleteConversation(id)
         if (_state.value.conversationId == id) {
             val next = _state.value.conversations.firstOrNull { it.id != id }?.id
                 ?: repo.newConversation(_state.value.settings.primaryModel)
             select(next)
         }
+    }
+
+    private var pendingUndo: Pair<com.xzo.agent.data.db.ConversationEntity, List<MessageEntity>>? = null
+
+    fun undoDeleteChat() = viewModelScope.launch {
+        val snapshot = pendingUndo ?: return@launch
+        val newId = repo.restoreConversation(snapshot.first, snapshot.second)
+        pendingUndo = null
+        _state.update { it.copy(undoDelete = null) }
+        select(newId)
+        banner("Chat restored")
+    }
+
+    fun dismissUndo() {
+        pendingUndo = null
+        _state.update { it.copy(undoDelete = null) }
     }
 
     fun renameChat(id: Long, title: String) = viewModelScope.launch { repo.rename(id, title) }
@@ -173,6 +204,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun useFollowUp(text: String) {
         _state.update { it.copy(followUps = emptyList()) }
         send(text)
+    }
+
+    /** Pins a brain to the open conversation without changing the global default. */
+    fun pinModelToChat(modelId: String) = viewModelScope.launch {
+        val cid = _state.value.conversationId
+        if (cid > 0) {
+            repo.setModel(cid, modelId)
+            banner("This chat now uses ${modelLabel(modelId)}")
+        }
     }
 
     fun setMode(mode: com.xzo.agent.agent.AgentMode) = _state.update { it.copy(mode = mode) }
@@ -311,8 +351,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     conversationId = cid,
                     role = "user",
                     content = prompt,
-                    attachmentsJson = if (attachments.isEmpty()) null
-                    else attachments.joinToString(", ") { it.name }
+                    attachmentsJson = com.xzo.agent.agent.AttachmentRef.encode(attachments)
                 )
             )
 
@@ -321,7 +360,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 userText = prompt,
                 history = history,
                 attachments = attachments,
-                modelId = s.settings.primaryModel,
+                modelId = s.conversationModel ?: s.settings.primaryModel,
                 fallbackModelId = s.settings.fallbackModel,
                 persona = s.settings.persona,
                 temperature = s.settings.temperature,

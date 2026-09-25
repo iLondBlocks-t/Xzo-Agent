@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -46,7 +47,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +68,7 @@ import com.xzo.agent.ui.components.MessageBubble
 import com.xzo.agent.ui.components.StreamingCaret
 import com.xzo.agent.ui.components.ThinkingDots
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +87,7 @@ fun ChatScreen(
     val context = LocalContext.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.messages.size, state.streamingText, state.status) {
@@ -173,6 +178,38 @@ fun ChatScreen(
                                 .padding(horizontal = 22.dp, vertical = 4.dp)
                         )
                     }
+                    if (state.undoDelete != null) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Deleted “${state.undoDelete.title}”",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    "Undo",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .clickable { vm.undoDeleteChat() }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+
                     if (state.lastError != null && !state.busy) {
                         Surface(
                             shape = RoundedCornerShape(14.dp),
@@ -234,6 +271,14 @@ fun ChatScreen(
                 }
             }
         ) { padding ->
+            val showJump by remember {
+                derivedStateOf {
+                    val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    listState.layoutInfo.totalItemsCount - last > 3
+                }
+            }
+
+            Box(Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -275,6 +320,35 @@ fun ChatScreen(
                 if (!state.busy && state.followUps.isNotEmpty()) {
                     item { FollowUpRow(state.followUps, t.next, onPick = vm::useFollowUp) }
                 }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showJump && state.messages.isNotEmpty(),
+                enter = fadeIn(tween(160)),
+                exit = fadeOut(tween(160)),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    shadowElevation = 4.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier.clickable {
+                        scope.launch { listState.animateScrollToItem(state.messages.lastIndex.coerceAtLeast(0)) }
+                    }
+                ) {
+                    Icon(
+                        Icons.Rounded.ArrowDownward,
+                        contentDescription = "Jump to latest",
+                        modifier = Modifier.padding(10.dp).size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
             }
         }
     }

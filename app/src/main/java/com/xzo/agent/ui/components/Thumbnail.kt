@@ -85,6 +85,67 @@ fun AttachmentThumbnail(
     }
 }
 
+/** Same as [AttachmentThumbnail] but sourced from a persisted content Uri. */
+@Composable
+fun UriThumbnail(
+    uri: String,
+    size: Dp = 120.dp,
+    corner: Dp = 12.dp,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val targetPx = remember(size) { with(density) { size.toPx().toInt().coerceAtLeast(64) } }
+    var bitmap by remember(uri, targetPx) { mutableStateOf<Bitmap?>(null) }
+    var failed by remember(uri) { mutableStateOf(false) }
+
+    LaunchedEffect(uri, targetPx) {
+        val decoded = withContext(Dispatchers.IO) { decodeUri(context, uri, targetPx) }
+        if (decoded == null) failed = true else bitmap = decoded
+    }
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(corner))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(corner))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        val bmp = bitmap
+        when {
+            bmp != null -> Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = "Attached image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(size)
+            )
+            failed -> Icon(
+                Icons.Rounded.BrokenImage,
+                contentDescription = null,
+                modifier = Modifier.size(size / 4),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            else -> ThinkingDots(dotSize = 4)
+        }
+    }
+}
+
+private fun decodeUri(context: android.content.Context, uri: String, targetPx: Int): Bitmap? = runCatching {
+    val parsed = android.net.Uri.parse(uri)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= targetPx && bounds.outHeight / (sample * 2) >= targetPx) {
+        sample *= 2
+    }
+    context.contentResolver.openInputStream(parsed)?.use {
+        BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
+}.getOrNull()
+
 private fun decode(dataUrl: String, targetPx: Int): Bitmap? = runCatching {
     val base64 = dataUrl.substringAfter("base64,", "")
     if (base64.isEmpty()) return null

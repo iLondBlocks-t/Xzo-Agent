@@ -97,7 +97,21 @@ fun MessageBubble(
                 modifier = Modifier.widthIn(max = 480.dp)
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-                    if (!message.attachmentsJson.isNullOrBlank()) {
+                    val refs = remember(message.attachmentsJson) {
+                        com.xzo.agent.agent.AttachmentRef.decode(message.attachmentsJson)
+                    }
+                    val images = refs.filter { it.image && it.uri.isNotBlank() }
+                    if (images.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            images.take(3).forEach { ref ->
+                                UriThumbnail(uri = ref.uri, size = 96.dp)
+                            }
+                        }
+                    }
+                    if (!message.attachmentsJson.isNullOrBlank() && images.size != refs.size) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(bottom = 6.dp)
@@ -110,7 +124,7 @@ fun MessageBubble(
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                message.attachmentsJson,
+                                refs.filterNot { it.image }.joinToString(", ") { it.name },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

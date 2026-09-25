@@ -72,6 +72,21 @@ class ChatRepository(
         return newId
     }
 
+    /** Full copy of a conversation, used to make deletion undoable. */
+    suspend fun snapshotConversation(cid: Long): Pair<ConversationEntity, List<MessageEntity>>? {
+        val convo = db.conversations().byId(cid) ?: return null
+        return convo to db.messages().listFor(cid)
+    }
+
+    suspend fun restoreConversation(
+        conversation: ConversationEntity,
+        messages: List<MessageEntity>
+    ): Long {
+        val id = db.conversations().insert(conversation.copy(id = 0))
+        messages.forEach { db.messages().insert(it.copy(id = 0, conversationId = id)) }
+        return id
+    }
+
     suspend fun stats(): Triple<Int, Int, Int> = Triple(
         db.conversations().count(),
         db.messages().count(),
