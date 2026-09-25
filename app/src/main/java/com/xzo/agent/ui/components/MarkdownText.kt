@@ -24,7 +24,13 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,7 +58,7 @@ fun MarkdownText(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         blocks.forEach { b ->
             when (b) {
-                is Markdown.Block.Heading -> Text(
+                is Markdown.Block.Heading -> LinkedText(
                     text = inline(b.text, color),
                     style = when (b.level) {
                         1 -> MaterialTheme.typography.headlineSmall
@@ -62,7 +68,7 @@ fun MarkdownText(
                     color = color
                 )
 
-                is Markdown.Block.Paragraph -> Text(
+                is Markdown.Block.Paragraph -> LinkedText(
                     text = inline(b.text, color),
                     style = MaterialTheme.typography.bodyLarge,
                     color = color
@@ -79,7 +85,7 @@ fun MarkdownText(
                                 color = color.copy(alpha = 0.65f),
                                 modifier = Modifier.width(if (b.ordered) 26.dp else 18.dp)
                             )
-                            Text(
+                            LinkedText(
                                 text = inline(item, color),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = color
@@ -119,6 +125,37 @@ fun MarkdownText(
             }
         }
     }
+}
+
+/** Text that opens `[label](url)` links in the browser when tapped. */
+@Composable
+private fun LinkedText(
+    text: AnnotatedString,
+    style: androidx.compose.ui.text.TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    val hasLinks = remember(text) { text.getStringAnnotations("URL", 0, text.length).isNotEmpty() }
+
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        onTextLayout = { layout = it },
+        modifier = if (!hasLinks) modifier else modifier.pointerInput(text) {
+            detectTapGestures { pos ->
+                layout?.let { l ->
+                    val offset = l.getOffsetForPosition(pos)
+                    text.getStringAnnotations("URL", offset, offset)
+                        .firstOrNull()
+                        ?.let { runCatching { uriHandler.openUri(it.item) } }
+                }
+            }
+        }
+    )
 }
 
 @Composable

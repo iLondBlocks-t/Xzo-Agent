@@ -119,6 +119,12 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                             scope.launch { repo.setToolsEnabled(it) }
                         }
                         ToggleRow(
+                            "Smart model routing",
+                            "Pick the best model per message automatically: fastest for short questions, " +
+                                "flagship for hard ones, multilingual for long Arabic, vision for images",
+                            s.autoRoute
+                        ) { scope.launch { repo.setAutoRoute(it) } }
+                        ToggleRow(
                             "Groq built-in tools",
                             "Use server-side browser search (Exa) and the Python sandbox (E2B) when the model supports them",
                             s.useBuiltInTools

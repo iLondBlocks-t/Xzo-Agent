@@ -42,7 +42,8 @@ data class AppSettings(
     val useBuiltInTools: Boolean = true,
     val reasoningEffort: String = "medium",
     val speakReplies: Boolean = false,
-    val voiceLanguage: String = ""
+    val voiceLanguage: String = "",
+    val autoRoute: Boolean = true
 )
 
 class SettingsRepository(private val context: Context) {
@@ -71,6 +72,7 @@ class SettingsRepository(private val context: Context) {
         val reasoningEffort = stringPreferencesKey("reasoning_effort")
         val speakReplies = booleanPreferencesKey("speak_replies")
         val voiceLanguage = stringPreferencesKey("voice_language")
+        val autoRoute = booleanPreferencesKey("auto_route")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -97,7 +99,8 @@ class SettingsRepository(private val context: Context) {
             useBuiltInTools = p[Keys.builtInTools] ?: true,
             reasoningEffort = p[Keys.reasoningEffort] ?: "medium",
             speakReplies = p[Keys.speakReplies] ?: false,
-            voiceLanguage = p[Keys.voiceLanguage].orEmpty()
+            voiceLanguage = p[Keys.voiceLanguage].orEmpty(),
+            autoRoute = p[Keys.autoRoute] ?: true
         )
     }
 
@@ -121,6 +124,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setReasoningEffort(v: String) = edit { it[Keys.reasoningEffort] = v }
     suspend fun setSpeakReplies(v: Boolean) = edit { it[Keys.speakReplies] = v }
     suspend fun setVoiceLanguage(v: String) = edit { it[Keys.voiceLanguage] = v.trim() }
+    suspend fun setAutoRoute(v: Boolean) = edit { it[Keys.autoRoute] = v }
     suspend fun setGroqKey(v: String) = edit { it[Keys.groqKey] = v.trim() }
     suspend fun setOpenRouterKey(v: String) = edit { it[Keys.orKey] = v.trim() }
 

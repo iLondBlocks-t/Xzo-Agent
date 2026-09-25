@@ -191,6 +191,32 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(busy = false, status = null, verifying = false) }
     }
 
+    /** Pull a user message back into the composer and drop everything after it. */
+    fun editMessage(m: MessageEntity) = viewModelScope.launch {
+        if (m.role != "user") return@launch
+        repo.truncateFrom(m.conversationId, m.id)
+        _state.update { it.copy(input = m.content) }
+        banner("Edit and send again")
+    }
+
+    /** Fork the conversation at this message so you can explore another direction. */
+    fun branchFrom(m: MessageEntity) = viewModelScope.launch {
+        val newId = repo.branch(m.conversationId, m.id)
+        select(newId)
+        banner("Branched into a new chat")
+    }
+
+    /** Re-answer the last question, optionally forcing a specific model. */
+    fun regenerate(modelId: String? = null) {
+        val msgs = _state.value.messages
+        val lastUser = msgs.lastOrNull { it.role == "user" } ?: return
+        viewModelScope.launch {
+            repo.truncateFrom(lastUser.conversationId, lastUser.id + 1)
+            modelId?.let { container.settingsRepo.setPrimaryModel(it) }
+            send(lastUser.content, reuseText = true)
+        }
+    }
+
     fun retryLast() {
         val last = _state.value.messages.lastOrNull { it.role == "user" } ?: return
         viewModelScope.launch {
@@ -251,6 +277,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 maxIterations = s.settings.maxIterations,
                 useBuiltInTools = s.settings.useBuiltInTools,
                 mode = s.mode,
+                autoRoute = s.settings.autoRoute,
                 reasoningEffort = s.settings.reasoningEffort,
                 enabledTools = container.engine.allTools
                     .map { it.name }

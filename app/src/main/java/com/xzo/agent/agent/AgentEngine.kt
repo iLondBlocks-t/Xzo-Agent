@@ -68,7 +68,8 @@ data class AgentInput(
     val streaming: Boolean = true,
     val maxIterations: Int = 6,
     val enabledTools: Set<String> = emptySet(),
-    val mode: AgentMode = AgentMode.AGENT
+    val mode: AgentMode = AgentMode.AGENT,
+    val autoRoute: Boolean = true
 )
 
 data class AgentOutcome(
@@ -121,8 +122,23 @@ class AgentEngine(
         if (input.mode == AgentMode.DEEP_RESEARCH) return runDeepResearch(input, onEvent)
         val tools = toolsFor(input)
         val toolMap = tools.associateBy { it.name }
-        val primary = ModelCatalog.byId(input.modelId)
 
+        val routed = if (input.autoRoute) {
+            AutoRouter.decide(
+                userText = input.userText,
+                hasImages = input.attachments.any { it.isImage },
+                mode = input.mode,
+                llm = llm,
+                userChoice = input.modelId
+            )
+        } else null
+        val effectiveInput = routed?.let { input.copy(modelId = it.model.id) } ?: input
+        val primary = ModelCatalog.byId(effectiveInput.modelId)
+        if (routed != null && routed.model.id != ModelCatalog.byId(input.modelId).id) {
+            onEvent(AgentEvent.Status("Routing to ${routed.model.label} — ${routed.reason}"))
+        }
+
+        @Suppress("NAME_SHADOWING") val input = effectiveInput
         val memoryBlock = runCatching { memory.asPromptBlock() }.getOrDefault("")
         val nowIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
         val systemPrompt = Prompts.system(

@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Refresh
@@ -54,6 +56,8 @@ fun MessageBubble(
     trace: AgentTraceLog,
     showTrace: Boolean,
     onRetry: () -> Unit,
+    onEdit: () -> Unit = {},
+    onBranch: () -> Unit = {},
     onSpeak: () -> Unit = {},
     speaking: Boolean = false,
     onShare: (String) -> Unit,
@@ -105,6 +109,29 @@ fun MessageBubble(
                         color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurface
                     )
+                }
+            }
+
+            if (isUser) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(top = 2.dp, end = 2.dp)
+                ) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(26.dp)) {
+                        Icon(
+                            Icons.Rounded.Edit, "Edit",
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onBranch, modifier = Modifier.size(26.dp)) {
+                        Icon(
+                            Icons.Rounded.CallSplit, "Branch from here",
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 

@@ -44,6 +44,26 @@ class ChatRepository(
     suspend fun recordArtifact(a: ArtifactEntity) = db.artifacts().insert(a)
     suspend fun deleteArtifact(id: Long) = db.artifacts().delete(id)
 
+    /** Deletes [fromId] and everything after it in the conversation. */
+    suspend fun truncateFrom(cid: Long, fromId: Long) {
+        db.messages().listFor(cid).filter { it.id >= fromId }.forEach { db.messages().delete(it.id) }
+    }
+
+    /** Copies the conversation up to (and including) [uptoId] into a brand new chat. */
+    suspend fun branch(cid: Long, uptoId: Long): Long {
+        val src = db.conversations().byId(cid) ?: return cid
+        val msgs = db.messages().listFor(cid).filter { it.id <= uptoId }
+        val newId = db.conversations().insert(
+            ConversationEntity(
+                title = "${src.title} (branch)",
+                modelId = src.modelId,
+                systemPrompt = src.systemPrompt
+            )
+        )
+        msgs.forEach { m -> db.messages().insert(m.copy(id = 0, conversationId = newId)) }
+        return newId
+    }
+
     suspend fun stats(): Triple<Int, Int, Int> = Triple(
         db.conversations().count(),
         db.messages().count(),
