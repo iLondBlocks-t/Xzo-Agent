@@ -235,8 +235,37 @@ fun CodeBlock(language: String, code: String) {
             }
         }
         val scroll = rememberScrollState()
+        val base = MaterialTheme.colorScheme.onSurface
+        val muted = MaterialTheme.colorScheme.onSurfaceVariant
+        val highlighted = remember(code, language) {
+            buildAnnotatedString {
+                append(code)
+                com.xzo.agent.util.Highlighter.highlight(code, language).forEach { span ->
+                    val style = when (span.kind) {
+                        com.xzo.agent.util.Highlighter.Kind.KEYWORD ->
+                            SpanStyle(fontWeight = FontWeight.Bold)
+                        com.xzo.agent.util.Highlighter.Kind.TYPE ->
+                            SpanStyle(fontWeight = FontWeight.Medium)
+                        com.xzo.agent.util.Highlighter.Kind.FUNCTION ->
+                            SpanStyle(fontWeight = FontWeight.Medium)
+                        com.xzo.agent.util.Highlighter.Kind.STRING ->
+                            SpanStyle(color = base.copy(alpha = 0.78f))
+                        com.xzo.agent.util.Highlighter.Kind.COMMENT ->
+                            SpanStyle(color = muted.copy(alpha = 0.7f), fontStyle = FontStyle.Italic)
+                        com.xzo.agent.util.Highlighter.Kind.NUMBER ->
+                            SpanStyle(color = base.copy(alpha = 0.9f), fontWeight = FontWeight.Medium)
+                        com.xzo.agent.util.Highlighter.Kind.ANNOTATION ->
+                            SpanStyle(color = muted, fontWeight = FontWeight.Medium)
+                        com.xzo.agent.util.Highlighter.Kind.PUNCT ->
+                            SpanStyle(color = muted.copy(alpha = 0.85f))
+                        else -> null
+                    }
+                    if (style != null) addStyle(style, span.start, span.end)
+                }
+            }
+        }
         Text(
-            text = code,
+            text = highlighted,
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(scroll)
@@ -246,7 +275,7 @@ fun CodeBlock(language: String, code: String) {
                 fontSize = 13.sp,
                 lineHeight = 19.sp
             ),
-            color = MaterialTheme.colorScheme.onSurface
+            color = base
         )
     }
 }

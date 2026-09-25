@@ -76,6 +76,26 @@ fun InputBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(attachments, key = { it.uri }) { a ->
+                    if (a.isImage && a.imageDataUrl != null) {
+                        Box {
+                            AttachmentThumbnail(dataUrl = a.imageDataUrl, size = 54.dp)
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = "Remove",
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(2.dp)
+                                    .size(16.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                        CircleShape
+                                    )
+                                    .clickable { onRemoveAttachment(a.uri) },
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        return@items
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
