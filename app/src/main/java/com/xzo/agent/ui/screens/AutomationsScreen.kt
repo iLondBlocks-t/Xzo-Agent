@@ -18,7 +18,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -159,15 +163,24 @@ fun AutomationsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit)
                             )
                             if (a.lastRunAt > 0) {
                                 Spacer(Modifier.height(6.dp))
-                                Text(
-                                    "${if (a.lastOk) "✓" else "✕"} last run " +
-                                        SimpleDateFormat("d MMM HH:mm", Locale.getDefault())
-                                            .format(Date(a.lastRunAt)) +
-                                        " · " + (a.lastResult?.take(70).orEmpty()),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    maxLines = 2
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        if (a.lastOk) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(13.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        "last run " +
+                                            SimpleDateFormat("d MMM HH:mm", Locale.getDefault())
+                                                .format(Date(a.lastRunAt)) +
+                                            " · " + (a.lastResult?.take(60).orEmpty()),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        maxLines = 2
+                                    )
+                                }
                             }
                             Row(
                                 Modifier.padding(top = 6.dp),
@@ -248,8 +261,15 @@ private fun AutomationEditor(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("AGENT", "DEEP_RESEARCH", "CHAT").forEach { m ->
                         TextButton(onClick = { mode = m }) {
+                            Icon(
+                                if (mode == m) Icons.Rounded.RadioButtonChecked
+                                else Icons.Rounded.RadioButtonUnchecked,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
                             Text(
-                                if (mode == m) "● ${m.lowercase()}" else m.lowercase(),
+                                m.lowercase().replace('_', ' '),
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }

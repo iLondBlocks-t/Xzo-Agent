@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -108,8 +109,13 @@ fun LibraryScreen(
                         ) {
                             Column(Modifier.padding(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(t.icon, style = MaterialTheme.typography.titleMedium)
-                                    Spacer(Modifier.width(8.dp))
+                                    Icon(
+                                        com.xzo.agent.ui.components.XzoIcons.forPrompt(t.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.width(10.dp))
                                     Text(t.title, style = MaterialTheme.typography.titleMedium)
                                 }
                                 Spacer(Modifier.height(6.dp))

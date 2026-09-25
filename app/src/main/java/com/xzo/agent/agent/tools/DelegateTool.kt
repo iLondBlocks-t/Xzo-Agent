@@ -43,7 +43,7 @@ object DelegateTool : AgentTool {
         if (task.isEmpty()) return ToolResult.fail("task is required")
         val context = args.str("context")
 
-        ctx.emit("${role.emoji} ${role.label} working…")
+        ctx.emit("${role.label} working…")
 
         return runCatching {
             val (result, spec) = Specialists.run(
@@ -58,7 +58,7 @@ object DelegateTool : AgentTool {
                 .distinctBy { it.url }
                 .take(8)
             val body = buildString {
-                appendLine("### ${role.emoji} ${role.label} (${spec.label})")
+                appendLine("### ${role.label} (${spec.label})")
                 appendLine()
                 appendLine(result.content.trim())
                 if (sources.isNotEmpty()) {
@@ -67,7 +67,7 @@ object DelegateTool : AgentTool {
                     sources.forEach { appendLine("- ${it.title}: ${it.url}") }
                 }
             }
-            ToolResult.ok(body, "${role.emoji} ${role.label} → ${result.content.length} chars")
+            ToolResult.ok(body, "${role.label} → ${result.content.length} chars")
         }.getOrElse { ToolResult.fail("${role.label} failed: ${it.message}") }
     }
 }

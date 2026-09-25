@@ -18,6 +18,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesomeMotion
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
@@ -79,11 +82,11 @@ fun ChatDrawer(
             Spacer(Modifier.height(8.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DrawerPill(t.promptLibrary, Modifier.weight(1f), onOpenLibrary)
-                DrawerPill(t.workspace, Modifier.weight(1f), onOpenWorkspace)
+                DrawerPill(t.promptLibrary, Modifier.weight(1f), onOpenLibrary, Icons.Rounded.AutoAwesomeMotion)
+                DrawerPill(t.workspace, Modifier.weight(1f), onOpenWorkspace, Icons.Rounded.FolderOpen)
             }
             Spacer(Modifier.height(8.dp))
-            DrawerPill("⏰ " + t.automations, Modifier.fillMaxWidth(), onOpenAutomations)
+            DrawerPill(t.automations, Modifier.fillMaxWidth(), onOpenAutomations, Icons.Rounded.Schedule)
 
             Spacer(Modifier.height(10.dp))
 
@@ -169,18 +172,36 @@ fun ChatDrawer(
 }
 
 @Composable
-private fun DrawerPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun DrawerPill(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.clickable(onClick = onClick)
     ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        )
+        ) {
+            if (icon != null) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }

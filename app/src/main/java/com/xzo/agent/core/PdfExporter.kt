@@ -91,7 +91,7 @@ object PdfExporter {
                     is Markdown.Block.Heading -> { y += 4f; line(block.text, who) }
                     is Markdown.Block.Paragraph -> line(block.text, body)
                     is Markdown.Block.Bullet -> block.items.forEachIndexed { i, item ->
-                        line((if (block.ordered) "${i + 1}. " else "• ") + item, body, 10f)
+                        line((if (block.ordered) "${i + 1}. " else "-  ") + item, body, 10f)
                     }
                     is Markdown.Block.Code -> block.code.lines().forEach { line(it, meta, 10f) }
                     is Markdown.Block.Quote -> line(block.text, meta, 10f)

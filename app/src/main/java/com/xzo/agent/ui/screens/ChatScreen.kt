@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Tune
@@ -382,10 +384,24 @@ private fun LiveTurn(state: ChatUiState) {
                     )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
+                Icon(
+                    com.xzo.agent.ui.components.XzoIcons.forTool(t.tool.lowercase()),
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    "${if (t.ok) "✓" else "✕"} ${t.tool}",
+                    t.tool,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    if (t.ok) Icons.Rounded.Check else Icons.Rounded.Close,
+                    contentDescription = if (t.ok) "succeeded" else "failed",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(

@@ -40,7 +40,7 @@ object AnalyzeImageTool : AgentTool {
             .filter { wanted.isEmpty() || it.name.equals(wanted, ignoreCase = true) }
         if (images.isEmpty()) {
             return ToolResult.fail(
-                "No image is attached to this message. Ask the user to attach one with the 📎 button."
+                "No image is attached to this message. Ask the user to attach one with the attach button."
             )
         }
 

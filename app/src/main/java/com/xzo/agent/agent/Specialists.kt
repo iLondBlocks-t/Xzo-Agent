@@ -26,15 +26,15 @@ import com.xzo.agent.data.remote.WireMessage
  * | CRITIC      | find errors before the user does      | temperature 0, no tools            |
  * | VISION      | read images / OCR                     | multimodal model                   |
  */
-enum class Role(val label: String, val emoji: String) {
-    PLANNER("Planner", "🧭"),
-    RESEARCHER("Researcher", "🔎"),
-    ANALYST("Analyst", "📊"),
-    CODER("Coder", "💻"),
-    WRITER("Writer", "✍️"),
-    TRANSLATOR("Translator", "🌍"),
-    CRITIC("Critic", "🔬"),
-    VISION("Vision", "👁️");
+enum class Role(val label: String) {
+    PLANNER("Planner"),
+    RESEARCHER("Researcher"),
+    ANALYST("Analyst"),
+    CODER("Coder"),
+    WRITER("Writer"),
+    TRANSLATOR("Translator"),
+    CRITIC("Critic"),
+    VISION("Vision");
 
     companion object {
         fun from(value: String?): Role =

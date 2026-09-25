@@ -119,8 +119,8 @@ class ChatRepository(
             appendLine()
             msgs.forEach { m ->
                 val who = when (m.role) {
-                    "user" -> "🧑 You"
-                    "assistant" -> "🤖 Xzo${m.model?.let { " ($it)" } ?: ""}"
+                    "user" -> "You"
+                    "assistant" -> "Xzo${m.model?.let { " (" + com.xzo.agent.data.remote.ModelCatalog.byId(it).label + ")" } ?: ""}"
                     else -> m.role
                 }
                 appendLine("## $who")

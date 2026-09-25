@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Edit
@@ -97,12 +98,23 @@ fun MessageBubble(
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
                     if (!message.attachmentsJson.isNullOrBlank()) {
-                        Text(
-                            "📎 ${message.attachmentsJson}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(bottom = 6.dp)
-                        )
+                        ) {
+                            Icon(
+                                Icons.Rounded.AttachFile,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                message.attachmentsJson,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     MarkdownText(
                         text = message.content,
@@ -308,12 +320,22 @@ fun TracePanel(trace: AgentTraceLog, onOpenArtifact: (String) -> Unit) {
         }
         trace.reasoning?.takeIf { it.isNotBlank() }?.let { r ->
             var open by remember { mutableStateOf(false) }
-            Text(
-                if (open) "Model reasoning ▲" else "Model reasoning ▼",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { open = !open }
-            )
+            ) {
+                Text(
+                    "Model reasoning",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             if (open) {
                 Text(
                     r,

@@ -401,7 +401,7 @@ class AgentEngine(
 
         val steps = report.findings.map { f ->
             ToolTrace(
-                tool = "${f.subTask.role.emoji} ${f.subTask.role.label}",
+                tool = f.subTask.role.label,
                 argsPreview = f.subTask.task.take(160),
                 summary = if (f.ok) "${f.sources.size} sources · ${f.model}" else "failed",
                 ok = f.ok,
@@ -417,7 +417,7 @@ class AgentEngine(
             answer = report.answer,
             trace = AgentTraceLog(
                 steps = steps,
-                plan = report.plan.joinToString("\n") { "${it.role.emoji} ${it.task}" },
+                plan = report.plan.joinToString("\n") { "${it.role.label}: ${it.task}" },
                 verdict = report.critique.take(300),
                 verified = verified,
                 provider = "multi-agent",
@@ -650,13 +650,13 @@ class AgentEngine(
 
     private fun friendlyError(t: Throwable): String = when {
         t is LlmException && t.missingKey ->
-            "🔑 **Xzo is not connected yet.**\n\nNo access key is saved, so there is no cloud brain to think " +
+            "**Xzo is not connected yet.**\n\nNo access key is saved, so there is no cloud brain to think " +
                 "with. Open **Settings → Access keys**, paste a key and tap **Test connection**.\n\n" +
                 "Everything that runs on the device — reading text from photos, offline translation, the " +
                 "calculator and your saved files — keeps working without a key."
 
         t is LlmException && t.rejectedKey ->
-            "🔑 **That access key was refused.**\n\nThree things cause this:\n" +
+            "**That access key was refused.**\n\nThree things cause this:\n" +
                 "1. the key was only partly copied (they are long — copy all of it),\n" +
                 "2. the key was deleted or regenerated,\n" +
                 "3. the key was posted somewhere public and got disabled automatically.\n\n" +
@@ -664,11 +664,11 @@ class AgentEngine(
                 "it will tell you immediately whether the new key works."
 
         t is LlmException && t.rateLimited ->
-            "⏳ **Every route is at capacity right now.**\n\nXzo already retried and switched routes. " +
+            "**Every route is at capacity right now.**\n\nXzo already retried and switched routes. " +
                 "Wait a few seconds and tap retry. Xzo itself never charges or caps you."
 
-        t is LlmException -> "⚠️ ${t.message}"
-        else -> "⚠️ Unexpected error: ${t.message ?: t::class.java.simpleName}"
+        t is LlmException -> t.message.orEmpty()
+        else -> "Unexpected error: ${t.message ?: t::class.java.simpleName}"
     }
 
     /** Short auto-title for a new conversation. */

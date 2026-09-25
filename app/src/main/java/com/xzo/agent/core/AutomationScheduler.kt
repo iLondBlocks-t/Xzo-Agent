@@ -105,7 +105,7 @@ class AutomationWorker(
             it > 0 && container.db.conversations().byId(it) != null
         } ?: container.db.conversations().insert(
             com.xzo.agent.data.db.ConversationEntity(
-                title = "⏰ ${automation.title}",
+                title = automation.title,
                 modelId = container.settingsSnapshot.primaryModel
             )
         )
@@ -165,7 +165,7 @@ class AutomationWorker(
         )
 
         if (automation.notify && answer.isNotBlank()) {
-            container.notifier.notifyResult("⏰ ${automation.title}", answer)
+            container.notifier.notifyResult(automation.title, answer)
         }
 
         // Queue tomorrow's run.

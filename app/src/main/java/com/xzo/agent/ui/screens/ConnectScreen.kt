@@ -139,7 +139,15 @@ fun ConnectScreen(
                         Text(t.troubleTitle, style = MaterialTheme.typography.labelLarge)
                         (if (t.rtl) com.xzo.agent.ui.troubleTipsAr else com.xzo.agent.ui.troubleTipsEn).forEach {
                             Row(verticalAlignment = Alignment.Top) {
-                                Text("•  ", style = MaterialTheme.typography.bodySmall)
+                                Box(
+                                    Modifier
+                                        .padding(top = 6.dp, end = 8.dp)
+                                        .size(4.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                            androidx.compose.foundation.shape.CircleShape
+                                        )
+                                )
                                 Text(
                                     it,
                                     style = MaterialTheme.typography.bodySmall,

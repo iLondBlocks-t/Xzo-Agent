@@ -54,7 +54,7 @@ class DeepResearch(private val llm: LlmClient) {
     ): Report = coroutineScope {
 
         /* ---------------- 1. plan ---------------- */
-        onEvent(AgentEvent.Status("🧭 Planning the investigation…"))
+        onEvent(AgentEvent.Status("Planning the investigation…"))
         val plan = runCatching { plan(question, conversationContext, maxSubTasks) }
             .getOrElse { emptyList() }
             .ifEmpty {
@@ -66,14 +66,14 @@ class DeepResearch(private val llm: LlmClient) {
             }
             .take(maxSubTasks)
 
-        onEvent(AgentEvent.Plan(plan.joinToString("\n") { "${it.role.emoji} ${it.task}" }))
+        onEvent(AgentEvent.Plan(plan.joinToString("\n") { "${it.role.label}: ${it.task}" }))
 
         /* ---------------- 2. investigate (parallel) ---------------- */
         onEvent(AgentEvent.Status("Investigating ${plan.size} threads in parallel…"))
         val findings = plan.map { sub ->
             async {
                 val started = System.currentTimeMillis()
-                onEvent(AgentEvent.ToolStart("${sub.role.emoji} ${sub.role.label}", sub.task.take(120)))
+                onEvent(AgentEvent.ToolStart(sub.role.label, sub.task.take(120)))
                 val result = runCatching {
                     Specialists.run(sub.role, sub.task, conversationContext.take(4000), llm)
                 }.getOrNull()
@@ -95,7 +95,7 @@ class DeepResearch(private val llm: LlmClient) {
                 onEvent(
                     AgentEvent.ToolEnd(
                         ToolTrace(
-                            tool = "${sub.role.emoji} ${sub.role.label}",
+                            tool = sub.role.label,
                             argsPreview = sub.task.take(140),
                             summary = if (finding.ok)
                                 "${finding.content.length} chars · ${sources.size} sources · ${finding.model}"
@@ -129,14 +129,14 @@ class DeepResearch(private val llm: LlmClient) {
 
         if (findings.none { it.ok }) {
             return@coroutineScope Report(
-                answer = "⚠️ Every research thread failed — the providers are probably rate limited. " +
+                answer = "Every research thread failed — the providers are probably rate limited. " +
                     "Wait a few seconds and try again, or switch to normal Agent mode.",
                 plan = plan, findings = findings, critique = "", revised = false
             )
         }
 
         /* ---------------- 3. synthesise ---------------- */
-        onEvent(AgentEvent.Status("✍️ Writing the report…"))
+        onEvent(AgentEvent.Status("Writing the report…"))
         val draft = runCatching {
             Specialists.run(
                 Role.WRITER,
@@ -156,7 +156,7 @@ class DeepResearch(private val llm: LlmClient) {
         }.getOrElse { material }
 
         /* ---------------- 4. critique ---------------- */
-        onEvent(AgentEvent.Status("🔬 Critic reviewing…"))
+        onEvent(AgentEvent.Status("Reviewing for errors…"))
         val critique = runCatching {
             Specialists.run(
                 Role.CRITIC,

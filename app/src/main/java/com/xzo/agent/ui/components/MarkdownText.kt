@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -79,12 +80,22 @@ fun MarkdownText(
                 is Markdown.Block.Bullet -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     b.items.forEachIndexed { idx, item ->
                         Row(verticalAlignment = Alignment.Top) {
-                            Text(
-                                text = if (b.ordered) "${idx + 1}." else "•",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = color.copy(alpha = 0.65f),
-                                modifier = Modifier.width(if (b.ordered) 26.dp else 18.dp)
-                            )
+                            if (b.ordered) {
+                                Text(
+                                    text = "${idx + 1}.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = color.copy(alpha = 0.65f),
+                                    modifier = Modifier.width(26.dp)
+                                )
+                            } else {
+                                Box(
+                                    Modifier
+                                        .width(18.dp)
+                                        .padding(top = 9.dp, end = 10.dp)
+                                        .size(5.dp)
+                                        .background(color.copy(alpha = 0.55f), CircleShape)
+                                )
+                            }
                             LinkedText(
                                 text = inline(item, color),
                                 style = MaterialTheme.typography.bodyLarge,

@@ -355,7 +355,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     MessageEntity(
                         conversationId = cid,
                         role = "assistant",
-                        content = "⚠️ The request failed unexpectedly. Tap retry.",
+                        content = "The request failed unexpectedly. Tap retry.",
                         error = true
                     )
                 )
@@ -477,7 +477,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 needsSetup = if (result.ok) false else it.needsSetup
             )
         }
-        banner(if (result.ok) "Connected ✓" else result.detail.take(120))
+        banner(if (result.ok) "Connected" else result.detail.take(120))
     }
 
     fun dismissSetup() = _state.update { it.copy(needsSetup = false) }

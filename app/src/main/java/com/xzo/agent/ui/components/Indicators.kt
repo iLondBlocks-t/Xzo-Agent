@@ -74,7 +74,7 @@ fun ThinkingDots(
     }
 }
 
-/** "Verified ✓" chip that fades + scales in once self-verification passes. */
+/** Verified chip (check icon + label) that fades and scales in once self-verification passes. */
 @Composable
 fun VerifiedChip(
     visible: Boolean,
@@ -104,8 +104,10 @@ fun VerifiedChip(
                 modifier = Modifier.size(13.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            val label = com.xzo.agent.ui.LocalStrings.current.verified
             Text(
-                text = if (verdict.isNullOrBlank() || verdict == "none") "Verified" else "Verified · $verdict".take(48),
+                text = if (verdict.isNullOrBlank() || verdict == "none") label
+                else "$label · $verdict".take(48),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
