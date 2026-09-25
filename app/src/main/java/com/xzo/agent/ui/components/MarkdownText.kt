@@ -194,7 +194,7 @@ fun CodeBlock(language: String, code: String) {
                 .horizontalScroll(scroll)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             style = LocalTextStyle.current.copy(
-                fontFamily = FontFamily.Monospace,
+                fontFamily = com.xzo.agent.ui.theme.XzoFonts.Mono,
                 fontSize = 13.sp,
                 lineHeight = 19.sp
             ),
@@ -206,7 +206,7 @@ fun CodeBlock(language: String, code: String) {
 /** Inline markdown: **bold**, *italic*, `code`, ~~strike~~, [text](url). */
 fun inline(src: String, base: Color): AnnotatedString = buildAnnotatedString {
     var i = 0
-    val mono = SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.5.sp)
+    val mono = SpanStyle(fontFamily = com.xzo.agent.ui.theme.XzoFonts.Mono, fontSize = 13.5.sp)
     while (i < src.length) {
         when {
             src.startsWith("**", i) -> {

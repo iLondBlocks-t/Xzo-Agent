@@ -44,6 +44,9 @@ interface ConversationDao {
 
     @Query("SELECT COUNT(*) FROM conversations")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM conversations ORDER BY updatedAt DESC")
+    suspend fun observeAllOnce(): List<ConversationEntity>
 }
 
 @Dao

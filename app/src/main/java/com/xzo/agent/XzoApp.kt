@@ -24,6 +24,20 @@ class XzoApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+
+        // Track foreground/background so results can be announced by notification
+        // only when the user has actually left the app.
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : androidx.lifecycle.DefaultLifecycleObserver {
+                override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                    container.appInForeground = true
+                }
+
+                override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
+                    container.appInForeground = false
+                }
+            }
+        )
     }
 }
 
@@ -61,4 +75,9 @@ class AppContainer(app: Application) {
     val recorder = com.xzo.agent.core.VoiceRecorder(app)
     val speaker = com.xzo.agent.core.Speaker(app)
     val modelRegistry = com.xzo.agent.data.repo.ModelRegistry(llm, scope)
+    val notifier = com.xzo.agent.core.Notifier(app)
+    val backup = com.xzo.agent.data.repo.BackupManager(db, files, settingsRepo)
+
+    @Volatile
+    var appInForeground: Boolean = true
 }

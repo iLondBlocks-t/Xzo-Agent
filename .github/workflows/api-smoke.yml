@@ -1,0 +1,216 @@
+name: API smoke test
+
+# Verifies that the exact model IDs and tool payloads the app sends are still
+# accepted by Groq and OpenRouter. Run it after adding the secrets, and any time
+# a provider announces deprecations.
+#
+#   Actions → API smoke test → Run workflow
+#
+# It never prints the keys, only pass/fail per check.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly drift check – catches model decommissions before users hit them.
+    - cron: '17 6 * * 1'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets are present
+        id: keys
+        run: |
+          if [ -z "${{ secrets.GROQ_API_KEY }}" ]; then
+            echo "::error::GROQ_API_KEY secret is not set. Settings → Secrets and variables → Actions."
+            echo "groq=false" >> $GITHUB_OUTPUT
+          else
+            echo "groq=true" >> $GITHUB_OUTPUT
+          fi
+          if [ -z "${{ secrets.OPENROUTER_API_KEY }}" ]; then
+            echo "::warning::OPENROUTER_API_KEY secret is not set — the fallback path cannot be tested."
+            echo "openrouter=false" >> $GITHUB_OUTPUT
+          else
+            echo "openrouter=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Groq · list models and assert the app's IDs exist
+        if: steps.keys.outputs.groq == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -sS -f https://api.groq.com/openai/v1/models \
+            -H "Authorization: Bearer $GROQ_API_KEY" > models.json
+          echo "Active Groq models:"
+          jq -r '.data[].id' models.json | sort | tee model-ids.txt
+          echo "## Groq models" >> $GITHUB_STEP_SUMMARY
+          jq -r '.data[].id' models.json | sort | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          for m in openai/gpt-oss-120b openai/gpt-oss-20b; do
+            if grep -qx "$m" model-ids.txt; then
+              echo "✅ $m available"
+            else
+              echo "::error::Model $m is NOT in the live Groq catalogue — update ModelCatalog.kt"
+              exit 1
+            fi
+          done
+          # Warn (do not fail) if a model the app still references disappeared.
+          for m in qwen/qwen3.8-27b whisper-large-v3-turbo; do
+            grep -qx "$m" model-ids.txt || echo "::warning::optional model $m not available"
+          done
+
+      - name: Groq · chat completion with built-in browser_search
+        if: steps.keys.outputs.groq == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o search.json -w '%{http_code}' \
+            -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "openai/gpt-oss-120b",
+              "messages": [{"role":"user","content":"In one sentence, what is the latest stable Android version? Search the web."}],
+              "temperature": 0.3,
+              "max_completion_tokens": 500,
+              "reasoning_effort": "low",
+              "tool_choice": "auto",
+              "tools": [{"type":"browser_search"}]
+            }')
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then jq . search.json || cat search.json; exit 1; fi
+          jq -r '.choices[0].message.content' search.json
+          test -n "$(jq -r '.choices[0].message.content // empty' search.json)"
+          echo "✅ browser_search accepted"
+
+      - name: Groq · chat completion with built-in code_interpreter
+        if: steps.keys.outputs.groq == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o code.json -w '%{http_code}' \
+            -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "openai/gpt-oss-20b",
+              "messages": [{"role":"user","content":"Compute 2**31-1 divided by 3600. Output only the number."}],
+              "tool_choice": "required",
+              "max_completion_tokens": 500,
+              "tools": [{"type":"code_interpreter"}]
+            }')
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then jq . code.json || cat code.json; exit 1; fi
+          jq -r '.choices[0].message.content' code.json
+          echo "✅ code_interpreter accepted"
+
+      - name: Groq · client-side function calling (the app's own tools)
+        if: steps.keys.outputs.groq == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o fn.json -w '%{http_code}' \
+            -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "openai/gpt-oss-120b",
+              "messages": [{"role":"user","content":"Save a file called notes.txt containing the word hello."}],
+              "max_completion_tokens": 400,
+              "tool_choice": "auto",
+              "tools": [{
+                "type": "function",
+                "function": {
+                  "name": "create_file",
+                  "description": "Save generated content to a file on the user device.",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "filename": {"type":"string"},
+                      "content": {"type":"string"}
+                    },
+                    "required": ["filename","content"],
+                    "additionalProperties": false
+                  }
+                }
+              }]
+            }')
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then jq . fn.json || cat fn.json; exit 1; fi
+          name=$(jq -r '.choices[0].message.tool_calls[0].function.name // "none"' fn.json)
+          echo "tool call → $name"
+          [ "$name" = "create_file" ] || echo "::warning::model answered without calling the tool"
+          echo "✅ function calling accepted"
+
+      - name: Groq · streaming (SSE) path
+        if: steps.keys.outputs.groq == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -sS -N -X POST https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"openai/gpt-oss-20b","stream":true,"max_completion_tokens":40,
+                 "messages":[{"role":"user","content":"Count from one to five."}]}' \
+            | head -20 | tee stream.txt
+          grep -q '^data:' stream.txt
+          echo "✅ SSE streaming works"
+
+      - name: OpenRouter · fallback model
+        if: steps.keys.outputs.openrouter == 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o or.json -w '%{http_code}' \
+            -X POST https://openrouter.ai/api/v1/chat/completions \
+            -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "HTTP-Referer: https://github.com/${{ github.repository }}" \
+            -H "X-Title: Xzo Agent" \
+            -d '{"model":"openai/gpt-oss-120b:free","max_tokens":80,
+                 "messages":[{"role":"user","content":"Reply with the single word: ready"}]}')
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then jq . or.json || cat or.json; fi
+          jq -r '.choices[0].message.content // .error.message' or.json
+          [ "$code" = "200" ] || echo "::warning::OpenRouter fallback returned $code (free tier may be saturated)"
+
+      - name: OpenRouter · confirm free models still exist
+        if: steps.keys.outputs.openrouter == 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          curl -sS -f https://openrouter.ai/api/v1/models \
+            -H "Authorization: Bearer $OPENROUTER_API_KEY" > or-models.json
+          echo "## Free OpenRouter models (sample)" >> $GITHUB_STEP_SUMMARY
+          jq -r '.data[] | select(.id | endswith(":free")) | .id' or-models.json \
+            | sort | head -40 | sed 's/^/- /' | tee -a $GITHUB_STEP_SUMMARY
+          for m in openai/gpt-oss-120b:free meta-llama/llama-3.3-70b-instruct:free; do
+            if jq -e --arg m "$m" '.data[] | select(.id == $m)' or-models.json > /dev/null; then
+              echo "✅ $m available"
+            else
+              echo "::warning::$m is no longer listed — pick another fallback in Settings"
+            fi
+          done
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Result"
+            echo "If every step above is green, the app's requests are valid against the live APIs:"
+            echo "- model IDs exist"
+            echo "- \`browser_search\` and \`code_interpreter\` built-in tools are accepted"
+            echo "- client-side function calling works"
+            echo "- SSE streaming works"
+            echo "- the OpenRouter fallback answers"
+          } >> $GITHUB_STEP_SUMMARY

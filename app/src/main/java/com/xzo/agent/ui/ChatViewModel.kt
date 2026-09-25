@@ -313,6 +313,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if (_state.value.settings.speakReplies && outcome != null && outcome.answer.isNotBlank()) {
                 container.speaker.speak(outcome.answer)
             }
+            if (!container.appInForeground && outcome != null && outcome.answer.isNotBlank()) {
+                container.notifier.notifyResult(
+                    title = _state.value.title.ifBlank { "Xzo finished" },
+                    answer = outcome.answer
+                )
+            }
 
             _state.update {
                 it.copy(
@@ -438,6 +444,22 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun forgetMemory(key: String) = viewModelScope.launch { container.memory.forget(key) }
 
     fun deleteArtifact(id: Long) = viewModelScope.launch { repo.deleteArtifact(id) }
+
+    fun exportBackup() = viewModelScope.launch {
+        val saved = container.backup.export()
+        banner(if (saved != null) "Backup saved as ${saved.name}" else "Backup cancelled")
+    }
+
+    fun importBackup() = viewModelScope.launch {
+        val r = container.backup.import()
+        banner(
+            when {
+                r.error == "cancelled" -> "Import cancelled"
+                r.error != null -> "Import failed: ${r.error}"
+                else -> "Imported ${r.conversations} chats, ${r.messages} messages, ${r.memories} memories"
+            }
+        )
+    }
 
     fun traceOf(m: MessageEntity): AgentTraceLog = AgentTraceLog.decode(m.traceJson)
 }

@@ -270,6 +270,22 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                 }
 
                 item {
+                    Card("Backup") {
+                        Text(
+                            "Everything lives on this device only. Export writes a single JSON file " +
+                                "(all chats, traces and memories) wherever you choose; import merges it back.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { vm.exportBackup() }) { Text("Export backup") }
+                            Button(onClick = { vm.importBackup() }) { Text("Import backup") }
+                        }
+                    }
+                }
+
+                item {
                     Card("About") {
                         Text("Xzo Agent ${BuildConfig.VERSION_NAME} · arm32 · Android 9+", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.height(6.dp))
