@@ -107,7 +107,10 @@ class AgentEngine(
         com.xzo.agent.agent.tools.ReadFolderFileTool,
         com.xzo.agent.agent.tools.TranslateTool,
         com.xzo.agent.agent.tools.AnalyzeImageTool,
-        com.xzo.agent.agent.tools.DelegateTool
+        com.xzo.agent.agent.tools.DelegateTool,
+        com.xzo.agent.agent.tools.OcrTool,
+        com.xzo.agent.agent.tools.OfflineTranslateTool,
+        com.xzo.agent.agent.tools.DetectLanguageTool
     )
 
     private val deepResearch by lazy { DeepResearch(llm) }

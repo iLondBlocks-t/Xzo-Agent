@@ -136,6 +136,11 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // On-device ML: OCR and translation that keep working with no network and no API key.
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
+
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
