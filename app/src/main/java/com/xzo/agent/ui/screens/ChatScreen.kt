@@ -174,6 +174,7 @@ fun ChatScreen(
                         },
                         onStop = vm::stop,
                         onAttach = { vm.attachFile() },
+                        onAttachImage = { vm.attachFile(imagesOnly = true) },
                         busy = state.busy,
                         attachments = state.attachments,
                         onRemoveAttachment = vm::removeAttachment,

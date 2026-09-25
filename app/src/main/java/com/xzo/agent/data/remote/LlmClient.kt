@@ -131,9 +131,9 @@ class LlmClient(
                 parsed.error?.let { throw LlmException(it.message.ifBlank { "Provider error" }) }
                 val choice = parsed.choices.firstOrNull()
                     ?: throw LlmException("Empty response from ${spec.provider.label}")
-                val msg = choice.message ?: WireMessage(role = "assistant", content = "")
+                val msg = choice.message ?: WireMessage("assistant", "")
                 TurnResult(
-                    content = msg.content.orEmpty(),
+                    content = msg.text,
                     toolCalls = msg.toolCalls.orEmpty(),
                     finishReason = choice.finishReason,
                     model = parsed.model.ifBlank { spec.id },

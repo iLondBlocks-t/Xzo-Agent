@@ -142,21 +142,39 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun banner(text: String?) = _state.update { it.copy(banner = text) }
 
-    fun attachFile() = viewModelScope.launch {
-        val loaded = container.files.openDocument(arrayOf("*/*"))
-        if (loaded == null) {
-            banner("No file selected")
-        } else if (loaded.text.isBlank()) {
-            banner("“${loaded.name}” has no readable text")
-        } else {
-            _state.update {
-                it.copy(
-                    attachments = it.attachments + Attachment(
-                        loaded.name, loaded.mime, loaded.text, loaded.uri.toString()
+    fun attachFile(imagesOnly: Boolean = false) = viewModelScope.launch {
+        val filter = if (imagesOnly) arrayOf("image/*") else arrayOf("*/*")
+        val loaded = container.files.openDocument(filter)
+        when {
+            loaded == null -> banner("No file selected")
+
+            loaded.imageDataUrl != null -> {
+                _state.update {
+                    it.copy(
+                        attachments = it.attachments + Attachment(
+                            name = loaded.name,
+                            mime = loaded.mime,
+                            text = loaded.text,
+                            uri = loaded.uri.toString(),
+                            imageDataUrl = loaded.imageDataUrl
+                        )
                     )
-                )
+                }
+                banner("Attached image ${loaded.name} (${com.xzo.agent.util.Images.approxKb(loaded.imageDataUrl)} KB)")
             }
-            banner("Attached ${loaded.name} (${loaded.text.length} chars)")
+
+            loaded.text.isBlank() -> banner("“${loaded.name}” has no readable text")
+
+            else -> {
+                _state.update {
+                    it.copy(
+                        attachments = it.attachments + Attachment(
+                            loaded.name, loaded.mime, loaded.text, loaded.uri.toString()
+                        )
+                    )
+                }
+                banner("Attached ${loaded.name} (${loaded.text.length} chars)")
+            }
         }
     }
 

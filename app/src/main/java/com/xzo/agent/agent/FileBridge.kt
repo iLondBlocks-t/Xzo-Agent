@@ -82,7 +82,13 @@ class FileBridge(private val appContext: Context) {
         }
     }
 
-    data class LoadedFile(val uri: Uri, val name: String, val mime: String, val text: String)
+    data class LoadedFile(
+        val uri: Uri,
+        val name: String,
+        val mime: String,
+        val text: String,
+        val imageDataUrl: String? = null
+    )
 
     /** Ask the user to pick a file, then read it as text. */
     suspend fun openDocument(mimes: Array<String> = arrayOf("*/*"), maxChars: Int = 200_000): LoadedFile? {
@@ -96,6 +102,18 @@ class FileBridge(private val appContext: Context) {
             appContext.contentResolver.takePersistableUriPermissionSafely(uri)
             val mime = appContext.contentResolver.getType(uri) ?: "application/octet-stream"
             val name = displayName(uri) ?: uri.lastPathSegment ?: "file"
+
+            // Images are converted to an inline data URL for vision models.
+            if (mime.startsWith("image/")) {
+                val dataUrl = com.xzo.agent.util.Images.toDataUrl(appContext, uri)
+                return@runCatching LoadedFile(
+                    uri = uri,
+                    name = name,
+                    mime = mime,
+                    text = if (dataUrl == null) "" else "[image ${com.xzo.agent.util.Images.approxKb(dataUrl)} KB]",
+                    imageDataUrl = dataUrl
+                )
+            }
             val text = appContext.contentResolver.openInputStream(uri)?.use { ins ->
                 BufferedReader(InputStreamReader(ins, Charsets.UTF_8)).use { br ->
                     val sb = StringBuilder()

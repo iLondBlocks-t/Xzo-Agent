@@ -50,8 +50,12 @@ data class Attachment(
     val name: String,
     val mime: String,
     val text: String,
-    val uri: String
-)
+    val uri: String,
+    /** `data:image/jpeg;base64,…` when the attachment is an image. */
+    val imageDataUrl: String? = null
+) {
+    val isImage: Boolean get() = imageDataUrl != null
+}
 
 interface AgentTool {
     val name: String

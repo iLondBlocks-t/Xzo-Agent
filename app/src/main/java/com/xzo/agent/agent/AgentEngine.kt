@@ -24,6 +24,7 @@ import com.xzo.agent.data.remote.Usage
 import com.xzo.agent.data.remote.WebClient
 import com.xzo.agent.data.remote.WireJson
 import com.xzo.agent.data.remote.WireMessage
+import com.xzo.agent.data.remote.multimodal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
@@ -95,7 +96,8 @@ class AgentEngine(
         SummarizeTool,
         com.xzo.agent.agent.tools.ListFolderTool,
         com.xzo.agent.agent.tools.ReadFolderFileTool,
-        com.xzo.agent.agent.tools.TranslateTool
+        com.xzo.agent.agent.tools.TranslateTool,
+        com.xzo.agent.agent.tools.AnalyzeImageTool
     )
 
     private fun toolsFor(input: AgentInput): List<AgentTool> {
@@ -133,16 +135,34 @@ class AgentEngine(
         val convo = mutableListOf<WireMessage>()
         convo += WireMessage("system", systemPrompt)
         convo += input.history
-        val attachmentPreamble = if (input.attachments.isEmpty()) "" else buildString {
+        val textAttachments = input.attachments.filterNot { it.isImage }
+        val imageAttachments = input.attachments.filter { it.isImage }
+
+        val attachmentPreamble = if (textAttachments.isEmpty()) "" else buildString {
             appendLine("[Attached files provided by the user for this message]")
-            input.attachments.forEach { a ->
+            textAttachments.forEach { a ->
                 appendLine("--- ${a.name} (${a.mime}) ---")
                 appendLine(a.text.take(40_000))
             }
             appendLine("[end of attachments]")
             appendLine()
         }
-        convo += WireMessage("user", attachmentPreamble + input.userText)
+
+        val imageNote = if (imageAttachments.isEmpty()) "" else
+            "[The user attached ${imageAttachments.size} image(s): " +
+                imageAttachments.joinToString { it.name } +
+                ". " + (if (primary.vision) "They are included below." else
+                "Call analyze_image to look at them.") + "]\n\n"
+
+        convo += if (primary.vision && imageAttachments.isNotEmpty()) {
+            multimodal(
+                "user",
+                attachmentPreamble + input.userText,
+                imageAttachments.mapNotNull { it.imageDataUrl }
+            )
+        } else {
+            WireMessage("user", attachmentPreamble + imageNote + input.userText)
+        }
 
         val produced = mutableListOf<WireMessage>()
         val steps = mutableListOf<ToolTrace>()

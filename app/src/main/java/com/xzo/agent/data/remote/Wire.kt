@@ -5,8 +5,15 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 /**
  * OpenAI-compatible wire types shared by Groq and OpenRouter.
@@ -43,10 +50,17 @@ data class ToolCall(
     val function: FunctionCall = FunctionCall()
 )
 
+/**
+ * A chat message.
+ *
+ * `content` is a raw [JsonElement] because the OpenAI-compatible schema allows either
+ * a plain string **or** an array of typed parts (text + image_url) for vision models.
+ * Use the [WireMessage] factory for plain text and [multimodal] for text + images.
+ */
 @Serializable
 data class WireMessage(
     val role: String,
-    val content: String? = null,
+    val content: JsonElement? = null,
     @SerialName("tool_calls") val toolCalls: List<ToolCall>? = null,
     @SerialName("tool_call_id") val toolCallId: String? = null,
     val name: String? = null,
@@ -55,6 +69,52 @@ data class WireMessage(
     /** Groq server-side tool executions (browser_search / code_interpreter). */
     @SerialName("executed_tools") val executedTools: List<ExecutedTool>? = null
 )
+
+/** Plain-text convenience factory; keeps every existing call-site unchanged. */
+@Suppress("FunctionName")
+fun WireMessage(
+    role: String,
+    content: String?,
+    toolCalls: List<ToolCall>? = null,
+    toolCallId: String? = null,
+    name: String? = null
+): WireMessage = WireMessage(
+    role = role,
+    content = content?.let { JsonPrimitive(it) },
+    toolCalls = toolCalls,
+    toolCallId = toolCallId,
+    name = name
+)
+
+/** Builds a vision message: text plus one or more images (data: or https: URLs). */
+fun multimodal(role: String, text: String, imageUrls: List<String>): WireMessage {
+    val parts = buildJsonArray {
+        if (text.isNotBlank()) {
+            add(buildJsonObject {
+                put("type", "text")
+                put("text", text)
+            })
+        }
+        imageUrls.forEach { url ->
+            add(buildJsonObject {
+                put("type", "image_url")
+                put("image_url", buildJsonObject { put("url", url) })
+            })
+        }
+    }
+    return WireMessage(role = role, content = parts)
+}
+
+/** Flattens any content shape back to readable text (for history, export, TTS). */
+val WireMessage.text: String
+    get() = when (val c = content) {
+        null -> ""
+        is JsonPrimitive -> c.contentOrNull.orEmpty()
+        is JsonArray -> c.mapNotNull { el ->
+            (el as? JsonObject)?.get("text")?.let { (it as? JsonPrimitive)?.contentOrNull }
+        }.joinToString("\n")
+        else -> c.toString()
+    }
 
 @Serializable
 data class ExecutedTool(

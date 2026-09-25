@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
@@ -52,6 +53,7 @@ fun InputBar(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onAttach: () -> Unit,
+    onAttachImage: () -> Unit = {},
     busy: Boolean,
     attachments: List<Attachment>,
     onRemoveAttachment: (String) -> Unit,
@@ -79,7 +81,7 @@ fun InputBar(
                             .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
                     ) {
                         Text(
-                            a.name.take(28),
+                            (if (a.isImage) "🖼 " else "") + a.name.take(26),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -113,6 +115,15 @@ fun InputBar(
                     Icon(
                         Icons.Rounded.AttachFile,
                         contentDescription = "Attach a file",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(onClick = onAttachImage, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        Icons.Rounded.Image,
+                        contentDescription = "Attach an image",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )

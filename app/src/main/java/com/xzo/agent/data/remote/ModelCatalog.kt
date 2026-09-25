@@ -29,7 +29,9 @@ data class ModelSpec(
     val contextTokens: Int = 8192,
     val reasoning: Boolean = false,
     val free: Boolean = false,
-    val preview: Boolean = false
+    val preview: Boolean = false,
+    /** Accepts image parts in the message content (vision). */
+    val vision: Boolean = false
 ) {
     val serverSideTools: Boolean get() = builtInTools.isNotEmpty()
 }
@@ -69,7 +71,8 @@ object ModelCatalog {
         description = "Multilingual (excellent Arabic), tool use, JSON mode. Preview model.",
         contextTokens = 131072,
         reasoning = true,
-        preview = true
+        preview = true,
+        vision = true
     )
 
     val GPT_OSS_SAFEGUARD_20B = ModelSpec(
@@ -105,6 +108,16 @@ object ModelCatalog {
         free = true
     )
 
+    val OR_GEMMA_VISION_FREE = ModelSpec(
+        id = "google/gemma-4-31b-it:free",
+        provider = Provider.OPENROUTER,
+        label = "OpenRouter · Gemma 4 31B (free, vision)",
+        description = "Free multimodal model: send images with your question. 140+ languages.",
+        contextTokens = 262144,
+        free = true,
+        vision = true
+    )
+
     val OR_QWEN_NEXT_FREE = ModelSpec(
         id = "qwen/qwen3-next-80b-a3b-instruct:free",
         provider = Provider.OPENROUTER,
@@ -135,7 +148,8 @@ object ModelCatalog {
     val groq: List<ModelSpec> = listOf(GPT_OSS_120B, GPT_OSS_20B, QWEN_38_27B, GPT_OSS_SAFEGUARD_20B)
 
     val openRouter: List<ModelSpec> = listOf(
-        OR_GPT_OSS_120B_FREE, OR_LLAMA_FREE, OR_QWEN_NEXT_FREE, OR_GPT_OSS_20B_FREE, OR_AUTO_FREE
+        OR_GPT_OSS_120B_FREE, OR_GEMMA_VISION_FREE, OR_LLAMA_FREE, OR_QWEN_NEXT_FREE,
+        OR_GPT_OSS_20B_FREE, OR_AUTO_FREE
     )
 
     val all: List<ModelSpec> = groq + openRouter
@@ -195,6 +209,9 @@ object ModelCatalog {
         chain += OR_AUTO_FREE
         return chain.toList()
     }
+
+    /** Models that can look at images, in preference order. */
+    fun visionChain(): List<ModelSpec> = (all + discovered).filter { it.vision }
 
     /** Small, cheap model used for titles, summaries and self-verification. */
     fun utility(): List<ModelSpec> = listOf(GPT_OSS_20B, OR_GPT_OSS_20B_FREE, OR_LLAMA_FREE)
