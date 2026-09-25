@@ -14,13 +14,35 @@ Built entirely in **Kotlin + Jetpack Compose (Material 3)**, single Gradle modul
 | | |
 |---|---|
 | **Agent loop** | Plan → Act → Observe → **self-verify** → Respond, up to N tool iterations (configurable) |
-| **Tools** | `web_search`, `fetch_url`, `code_execution`, `calculator`, `create_file`, `write_file`, `read_file`, `current_datetime`, `device_info`, `remember`, `recall`, `summarize_text` |
-| **Providers** | **Groq** (primary, `groq/compound` with server-side web search + Python sandbox) → automatic **OpenRouter** free-model fallback on error/429 |
+| **Tools** (15) | `web_search`, `fetch_url`, `code_execution`, `calculator`, `create_file`, `write_file`, `read_file`, `list_folder`, `read_folder_file`, `translate`, `current_datetime`, `device_info`, `remember`, `recall`, `summarize_text` |
+| **Providers** | **Groq** (primary, `openai/gpt-oss-120b` with server-side **browser search** + **Python sandbox**) → automatic **OpenRouter** free-model fallback on error/429 |
+| **Model drift-proof** | Live `/models` discovery from both providers + an auto-migration map for retired IDs, so a decommissioned model never breaks the app |
+| **Voice** | Mic button → Groq **Whisper large v3 turbo** transcription; answers can be read back with the offline device TTS |
+| **Prompt library** | 21 curated agentic prompts across Research / Files / Coding / Productivity / Learning / Arabic |
+| **Workspace** | Files the agent created, long-term memory manager, usage statistics |
 | **Files** | Storage Access Framework only — *you* choose where every file is saved/read. No storage permissions requested |
 | **Self-verification** | A second model pass critiques the draft answer; if it passes you get a **Verified ✓** chip, if it fails the answer is auto-corrected |
 | **UI** | Diagonal drifting gradient (gray → near-black → off-white), light/dark aware, rounded bubbles, pulsing "thinking" dots, animated Verified chip. No colour accents, no ads, no login, no paywall |
 | **Local** | Room database: conversations, messages, tool traces, artifacts, long-term memory. Everything stays on the device |
 | **ABI** | `armeabi-v7a` only (`abiFilters`), `minSdk 28`, `targetSdk 34` |
+
+### ⚠️ Model catalogue note (read this)
+
+Provider catalogues churn fast. As of **25 Sep 2026**:
+
+* `groq/compound` and `groq/compound-mini` were **decommissioned on 21 Sep 2026** — requests to them now error.
+* `llama-3.3-70b-versatile` / `llama-3.1-8b-instant` were retired for free & developer tiers on **16 Aug 2026**.
+
+Xzo therefore defaults to **`openai/gpt-oss-120b`**, Groq's current flagship, which provides exactly the same
+agentic capability the retired Compound system did — built-in `browser_search` (powered by Exa) and
+`code_interpreter` (sandboxed Python on E2B) — requested as `{"type": "browser_search"}` /
+`{"type": "code_interpreter"}` entries in the `tools` array alongside the app's own function tools.
+
+To stay safe against future churn the app also:
+
+1. keeps a **retired-ID → replacement map** and silently migrates stored settings, and
+2. can **fetch the live model list** from `https://api.groq.com/openai/v1/models` and
+   `https://openrouter.ai/api/v1/models` (Settings → Models → *Refresh live model list*).
 
 ### What "unlimited" means
 The app itself never charges you, never shows ads, never asks you to log in and imposes **no quota**.
@@ -84,11 +106,31 @@ The signing step is skipped automatically when `SIGNING_KEY` is absent — you s
 
 ## 4. Where the APK appears
 
-`Actions → (your run) → Artifacts → app-release-arm32` → download the zip → `app-release*.apk`
-→ copy to the phone → allow "install from unknown sources" → install.
-Unsigned APKs must be signed (or use the debug build) before Android will install them.
+`Actions → (your run) → Artifacts`. Two artifacts are produced:
+
+| Artifact | Contents | Installable as-is? |
+|---|---|---|
+| `app-debug-arm32` | `app-debug.apk`, signed with the standard Android debug key | ✅ **Yes** — download, copy to the phone, allow "install from unknown sources", install |
+| `app-release-arm32` | `app-release.apk` (or `app-release-unsigned.apk` if no keystore secret) | Only once signed — add the signing secrets above |
+
+Start with the **debug** APK; switch to the signed release once you have generated a keystore.
 
 ---
+
+## Feature tour
+
+* **Chat** — drifting gradient background, rounded bubbles, streaming tokens, pulsing thinking dots,
+  per-message agent trace (every tool call, its arguments, duration and result), Verified ✓ chip,
+  copy / share / read-aloud / retry on every answer.
+* **Drawer** — conversation list with pin, delete, rename, full-text search across all messages.
+* **Prompt library** — categorised, tool-aware starter prompts (including an Arabic pack).
+* **Workspace** — Files (everything the agent saved, tap to open), Memory (what Xzo remembers about you,
+  deletable), Usage (chats / messages / tokens).
+* **Settings** — model + fallback pickers with live refresh, built-in-tools toggle, reasoning effort,
+  temperature, max tokens, tool iterations, history window, per-tool on/off switches, persona editor,
+  theme (system/light/dark), animated background, haptics, read-aloud, on-device key overrides.
+* **Integrations** — share text into Xzo, "process text" selection action, launcher shortcuts
+  (New chat / Prompt library).
 
 ## Project layout
 
@@ -104,11 +146,14 @@ app/src/main/java/com/xzo/agent/
 │   ├── Prompts.kt           # system prompt + self-verification prompt
 │   ├── Trace.kt             # serialized per-message agent trace
 │   └── tools/               # WebTools, CodeTools, FileTools, UtilityTools
-├── core/Settings.kt         # DataStore-backed settings
+├── core/
+│   ├── Settings.kt          # DataStore-backed settings
+│   ├── PromptLibrary.kt     # curated agentic prompt packs
+│   └── VoiceIO.kt           # mic capture (Whisper) + offline TTS
 ├── data/
 │   ├── db/                  # Room entities, DAOs, database
 │   ├── remote/              # OpenAI-compatible wire types, LlmClient (SSE streaming), WebClient, ModelCatalog
-│   └── repo/                # ChatRepository (history, export, auto-title)
+│   └── repo/                # ChatRepository (history, export, auto-title), ModelRegistry (live /models)
 ├── ui/                      # theme, components (gradient, bubbles, markdown, indicators), screens
 └── util/                    # Calc (safe math evaluator), Markdown parser
 ```
@@ -122,6 +167,11 @@ echo "OPENROUTER_API_KEY=..." >> local.properties
 ```
 
 Requires JDK 17 and the Android SDK (compileSdk 34). Everything else is downloaded by Gradle.
+
+## Tests
+
+`./gradlew testDebugUnitTest` runs the unit tests (safe math evaluator, markdown parser); CI runs them
+before every APK build.
 
 ## Privacy
 
