@@ -219,7 +219,9 @@ private fun MetaLine(message: MessageEntity, trace: AgentTraceLog) {
     }
     val bits = buildList {
         add(time)
-        message.model?.takeIf { it.isNotBlank() }?.let { add(it.substringAfterLast('/')) }
+        message.model?.takeIf { it.isNotBlank() }?.let {
+            add(com.xzo.agent.data.remote.ModelCatalog.byId(it).label)
+        }
         if (trace.fallbackUsed) add("fallback")
         if (message.completionTokens > 0) add("${message.promptTokens + message.completionTokens} tok")
         if (message.latencyMs > 0) add("${message.latencyMs / 100 / 10.0}s")

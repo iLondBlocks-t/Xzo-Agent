@@ -146,7 +146,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else if (showSettings) {
-                    SettingsScreen(state = state, vm = vm, onBack = { showSettings = false })
+                    SettingsScreen(
+                        state = state,
+                        vm = vm,
+                        onBack = { showSettings = false },
+                        onOpenConnect = { showSettings = false; showConnect = true }
+                    )
                 } else if (showLibrary) {
                     com.xzo.agent.ui.screens.LibraryScreen(
                         animatedBackground = state.settings.animatedBackground,

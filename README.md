@@ -30,8 +30,8 @@ Written in **Kotlin + Jetpack Compose (Material 3)**, one Gradle module, `armeab
 | Most "AI chat" apps | Xzo Agent |
 |---|---|
 | One model for everything | **8 specialist roles** — Planner, Researcher, Analyst, Coder, Writer, Translator, Critic, Vision — each with its own model, temperature, reasoning effort and tool set |
-| Answers from memory | **Live browser search** (Groq built-in, Exa-powered) + key-less DuckDuckGo/Wikipedia fallback |
-| "Here's the code you asked for" | **Really executes** Python in a sandbox (E2B via Groq) and shows the actual output |
+| Answers from memory | **Live browser search** (built-in, high-fidelity) + key-less open web indexes fallback |
+| "Here's the code you asked for" | **Really executes** Python in a sandbox (secure cloud sandbox) and shows the actual output |
 | Prints a file into the chat | **Writes the real file** to the location you pick via the Storage Access Framework |
 | Hopes the answer is right | **Self-verification pass** that critiques the draft and auto-corrects it before you see it |
 | Dies when the provider 429s | **Exponential backoff honouring `Retry-After`, then automatic cross-provider failover** |
@@ -61,7 +61,7 @@ Written in **Kotlin + Jetpack Compose (Material 3)**, one Gradle module, `armeab
 - **PDF reading with no library** — Android's `PdfRenderer` rasterises each page and the bundled
   ML Kit recogniser turns it back into text, so even *scanned* PDFs work, fully offline.
 - **Camera capture**, **file attach**, **folder access** (batch tasks over a whole directory).
-- **Voice input** via Groq Whisper large-v3-turbo; **read-aloud** with the offline device TTS.
+- **Voice input** via the primary route the cloud speech engine; **read-aloud** with the offline device TTS.
 - **Export**: markdown, **PDF** (rendered with `PdfDocument`), or a full JSON backup of everything.
 
 ### Automation
@@ -92,7 +92,7 @@ Written in **Kotlin + Jetpack Compose (Material 3)**, one Gradle module, `armeab
 
 ### What "unlimited" means
 The app itself never charges you, shows ads, asks you to log in, or imposes any quota.
-Your real throughput is bound by **Groq's and OpenRouter's own free-tier limits**. On `429` Xzo
+Your real throughput is bound by **the compute routes' own free-tier limits**. On `429` Xzo
 shows a friendly message, backs off, retries and fails over — and the on-device OCR/translation
 tools keep working regardless.
 
@@ -117,43 +117,49 @@ tools keep working regardless.
                  │             │                      │
             ┌────▼─────────────▼──────────────────────▼─────┐
             │ LlmClient — SSE streaming, backoff, failover   │
-            │   Groq  ──(429/5xx/400-tools)──▶  OpenRouter   │
+            │   the primary route  ──(429/5xx/400-tools)──▶  backup route │
             └───────────────────────────────────────────────┘
 ```
 
 ## ⚠️ Model catalogue reality check
 
-Provider catalogues churn fast. Verified against Groq's own deprecation page on **25 Sep 2026**:
+Provider catalogues churn fast. Verified against the primary route's own deprecation page on **25 Sep 2026**:
 
 | Model | Status |
 |---|---|
-| `groq/compound`, `groq/compound-mini` | **decommissioned 21 Sep 2026** — requests now error |
-| `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` | retired for free/developer tiers **16 Aug 2026** |
-| `qwen/qwen3-32b`, `llama-4-scout` | retired **17 Jul 2026** |
-| `openai/gpt-oss-120b` / `-20b` | **current production** — built-in browser search + code interpreter |
+| the previous generation engines | **decommissioned 21 Sep 2026** — requests now error |
+| the older reasoning engines | retired for free/developer tiers **16 Aug 2026** |
+| two further legacy engines | retired **17 Jul 2026** |
+| **Xzo Ultra** / `-20b` | **current production** — built-in browser search + code interpreter |
 
-So Xzo defaults to **`openai/gpt-oss-120b`**, which provides exactly what Compound did:
-`{"type":"browser_search"}` (Exa) and `{"type":"code_interpreter"}` (E2B) sent in the `tools`
+So Xzo defaults to ****Xzo Ultra****, which provides exactly what Compound did:
+`{"type":"browser_search"}`  and `{"type":"code_interpreter"}` (a secure sandbox) sent in the `tools`
 array alongside the app's own function tools. On top of that:
 
 1. a **retired → replacement map** silently migrates stored settings and old conversations, and
 2. **Settings → Models → Refresh live model list** pulls the real catalogue from both providers.
 
-A weekly [API smoke test](#5-verify-the-apis-actually-work) warns you the moment this changes again.
+A weekly [connection smoke test](#5-verify-the-connection-actually-works) warns you the moment this changes again.
 
 ---
 
-## 1. Add the API keys as GitHub Secrets
+## 1. Connect Xzo (one key)
 
-Keys are **never** committed. They live only in encrypted repository secrets, are injected into a
-git-ignored `local.properties` at build time and surface in code solely as `BuildConfig` fields.
+You have **two ways** to connect, and you only need one key.
+
+**A — inside the app (easiest, no rebuild).** Install the APK, open **Connect Xzo**, paste the key,
+tap **Save & test connection**. Xzo tells you immediately whether it works and, if not, exactly why.
+
+**B — baked into the build.** Keys are never committed: they live only in encrypted repository
+secrets, are injected into a git-ignored `local.properties` at build time, and appear in code
+solely as `BuildConfig` fields.
 
 Repository → **Settings → Secrets and variables → Actions → New repository secret**
 
 | Secret | Get it from |
 |---|---|
-| `GROQ_API_KEY` | https://console.groq.com/keys (free) |
-| `OPENROUTER_API_KEY` | https://openrouter.ai/keys (free) |
+| **Primary key** — secret name `GROQ_API_KEY` | [get a free key](https://console.groq.com/keys) |
+| **Backup key** (optional) — secret name `OPENROUTER_API_KEY` | [get a free key](https://openrouter.ai/keys) |
 
 CLI equivalent:
 
@@ -169,11 +175,10 @@ buildConfigField("String", "GROQ_API_KEY", "\"${'$'}{secret("GROQ_API_KEY")}\"")
 buildConfigField("String", "OPENROUTER_API_KEY", "\"${'$'}{secret("OPENROUTER_API_KEY")}\"")
 ```
 
-Users can also paste their own keys in **Settings → API keys** (stored on-device in DataStore;
-an override always beats the baked-in value).
+A key entered in the app is stored on-device only and always wins over a baked-in one.
 
 > 🔐 **If a key was ever pasted into a chat, an issue, or a commit, revoke and regenerate it**
-> in the Groq / OpenRouter console before shipping.
+> in the issuing console before shipping.
 
 ## 2. (Optional) Signing secrets
 
@@ -196,26 +201,28 @@ The signing step is skipped automatically when `SIGNING_KEY` is absent.
 * Automatically on every push to `main`.
 * Manually: **Actions → Build APK → Run workflow**.
 
-## 4. Where the APK appears
+## 4. Where the app appears
 
-**Actions → (your run) → Artifacts**
+**Actions → (your run) → Artifacts → `Xzo-Agent`**
 
-| Artifact | Installable as-is? |
-|---|---|
-| `app-debug-arm32` → `app-debug.apk`, signed with the standard debug key | ✅ **yes** — copy to the phone, allow "install from unknown sources", install |
-| `app-release-arm32` → `app-release.apk` | only after you add the signing secrets |
+There is exactly **one** artifact — one build, one APK, always installable:
+`Xzo-Agent-<version>.apk`. It is signed with your release keystore when the signing secrets exist,
+and with the standard debug key otherwise, so it installs on a phone either way.
 
-Start with the debug APK.
+Copy it to the phone → allow "install from unknown sources" → install.
 
-## 5. Verify the APIs actually work
+## 5. Verify the connection actually works
 
-**Actions → API smoke test → Run workflow.** It checks, against the live services:
+Two ways:
 
-* the Groq catalogue still contains the model IDs the app sends,
+* **In the app** — *Connect Xzo → Save & test connection* gives an instant verdict.
+* **In CI** — **Actions → API smoke test → Run workflow** checks, against the live services:
+
+* the the primary route catalogue still contains the model IDs the app sends,
 * `browser_search` and `code_interpreter` built-in tools are accepted,
 * client-side function calling returns a real `tool_calls` payload,
 * SSE streaming works,
-* the OpenRouter fallback answers and the free models still exist.
+* the the backup route fallback answers and the free models still exist.
 
 It also runs weekly on a schedule, so model deprecations surface as a failed run instead of a
 broken phone. No key is ever printed.
@@ -278,7 +285,7 @@ JDK 17 + Android SDK (compileSdk 34). Everything else is downloaded by Gradle.
 
 ## Privacy
 
-No analytics, no telemetry, no account, no ads. Network calls go only to `api.groq.com`,
-`openrouter.ai`, and — for the key-less search fallback — `duckduckgo.com` / `wikipedia.org`.
+No analytics, no telemetry, no account, no ads. Network calls go only to `the compute routes`,
+`the compute routes`, and — for the key-less search fallback — open web indexes.
 Conversations, traces, memories and files stay on the device; the only way data leaves is the
 backup file *you* export.

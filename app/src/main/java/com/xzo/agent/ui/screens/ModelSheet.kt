@@ -113,7 +113,12 @@ private fun ModelRow(m: ModelSpec, selected: Boolean, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "${m.id} · ${m.contextTokens / 1024}k ctx",
+                buildString {
+                    append("${m.contextTokens / 1024}k memory")
+                    if (m.vision) append(" · sees images")
+                    if (m.serverSideTools) append(" · web + code")
+                    if (m.reasoning) append(" · deep thinking")
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )

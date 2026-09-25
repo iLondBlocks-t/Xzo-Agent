@@ -51,7 +51,12 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
+fun SettingsScreen(
+    state: ChatUiState,
+    vm: ChatViewModel,
+    onBack: () -> Unit,
+    onOpenConnect: () -> Unit = {}
+) {
     val scope = rememberCoroutineScope()
     val s = state.settings
     val repo = vm.settingsRepo
@@ -236,7 +241,9 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                 }
 
                 item {
-                    Card("API keys") {
+                    Card("Access keys") {
+                        Button(onClick = onOpenConnect) { Text("Open connection setup & test") }
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             "Xzo needs an access key to reach its cloud brains. Keys are stored only on this device " +
                                 "and are never sent anywhere except to the compute route itself.",
