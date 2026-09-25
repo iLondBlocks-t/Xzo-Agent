@@ -15,6 +15,7 @@ import com.xzo.agent.R
  *    falling back to whatever the OEM ships — important, this app is used in Arabic.
  *  * **JetBrains Mono** for code blocks: a true coding face with clear 0/O and 1/l/I.
  */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 object XzoFonts {
 
     private fun interWeight(w: Int) = Font(
