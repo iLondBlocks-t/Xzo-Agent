@@ -10,6 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -40,13 +43,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tail -c 50000 /tmp/build.log > /tmp/tail.log || true
-          python3 - <<'PY'
-          import json, os, subprocess
-          body = "### Build failure log (tail)\n\n```\n" + open('/tmp/tail.log').read()[-45000:] + "\n```"
-          open('/tmp/body.json','w').write(json.dumps({"body": body}))
-          PY
-          gh api -X POST "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" --input /tmp/body.json
+          tail -c 45000 /tmp/build.log > /tmp/tail.log || echo "no log" > /tmp/tail.log
+          # 1) annotations (readable through the check-runs API)
+          grep -E "^e: |error:|FAILURE:|Caused by:|> Task .* FAILED" /tmp/build.log | head -40 | while read -r line; do
+            echo "::error::${line}"
+          done
+          # 2) full tail as a commit comment
+          jq -Rs '{body: ("### Build failure log (tail)\n\n```\n" + . + "\n```")}' /tmp/tail.log > /tmp/body.json
+          gh api -X POST "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" --input /tmp/body.json || true
 
       - name: Check signing secrets
         id: signing
