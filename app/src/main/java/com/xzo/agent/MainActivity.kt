@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(intent?.action == "com.xzo.agent.OPEN_LIBRARY")
                 }
                 var showWorkspace by remember { mutableStateOf(false) }
+                var showAutomations by remember { mutableStateOf(false) }
 
                 if (showSettings) {
                     SettingsScreen(state = state, vm = vm, onBack = { showSettings = false })
@@ -139,6 +140,10 @@ class MainActivity : ComponentActivity() {
                             showLibrary = false
                         },
                         onBack = { showLibrary = false }
+                    )
+                } else if (showAutomations) {
+                    com.xzo.agent.ui.screens.AutomationsScreen(
+                        state = state, vm = vm, onBack = { showAutomations = false }
                     )
                 } else if (showWorkspace) {
                     com.xzo.agent.ui.screens.WorkspaceScreen(
@@ -165,6 +170,10 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onOpenWorkspace = {
                                     showWorkspace = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                onOpenAutomations = {
+                                    showAutomations = true
                                     scope.launch { drawerState.close() }
                                 }
                             )

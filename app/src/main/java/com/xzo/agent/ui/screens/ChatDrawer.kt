@@ -46,7 +46,8 @@ fun ChatDrawer(
     onSelect: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit = {},
-    onOpenWorkspace: () -> Unit = {}
+    onOpenWorkspace: () -> Unit = {},
+    onOpenAutomations: () -> Unit = {}
 ) {
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -80,6 +81,8 @@ fun ChatDrawer(
                 DrawerPill("Prompt library", Modifier.weight(1f), onOpenLibrary)
                 DrawerPill("Workspace", Modifier.weight(1f), onOpenWorkspace)
             }
+            Spacer(Modifier.height(8.dp))
+            DrawerPill("⏰ Automations", Modifier.fillMaxWidth(), onOpenAutomations)
 
             Spacer(Modifier.height(10.dp))
 

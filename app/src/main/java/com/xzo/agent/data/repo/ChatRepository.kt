@@ -20,6 +20,14 @@ class ChatRepository(
     fun messages(cid: Long): Flow<List<MessageEntity>> = db.messages().observeFor(cid)
     fun conversation(cid: Long): Flow<ConversationEntity?> = db.conversations().observeById(cid)
     fun artifacts(): Flow<List<ArtifactEntity>> = db.artifacts().observeAll()
+    fun automations(): Flow<List<com.xzo.agent.data.db.AutomationEntity>> = db.automations().observeAll()
+
+    suspend fun upsertAutomation(a: com.xzo.agent.data.db.AutomationEntity): Long =
+        if (a.id == 0L) db.automations().insert(a) else { db.automations().update(a); a.id }
+
+    suspend fun automationById(id: Long) = db.automations().byId(id)
+    suspend fun deleteAutomation(id: Long) = db.automations().delete(id)
+    suspend fun setAutomationEnabled(id: Long, enabled: Boolean) = db.automations().setEnabled(id, enabled)
 
     suspend fun newConversation(modelId: String): Long =
         db.conversations().insert(ConversationEntity(modelId = modelId))

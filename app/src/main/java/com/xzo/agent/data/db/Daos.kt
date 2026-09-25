@@ -120,3 +120,27 @@ interface ArtifactDao {
     @Query("DELETE FROM artifacts WHERE id = :id")
     suspend fun delete(id: Long)
 }
+
+@Dao
+interface AutomationDao {
+    @Insert
+    suspend fun insert(a: AutomationEntity): Long
+
+    @Update
+    suspend fun update(a: AutomationEntity)
+
+    @Query("SELECT * FROM automations ORDER BY hour, minute")
+    fun observeAll(): Flow<List<AutomationEntity>>
+
+    @Query("SELECT * FROM automations ORDER BY hour, minute")
+    suspend fun all(): List<AutomationEntity>
+
+    @Query("SELECT * FROM automations WHERE id = :id")
+    suspend fun byId(id: Long): AutomationEntity?
+
+    @Query("UPDATE automations SET enabled = :enabled WHERE id = :id")
+    suspend fun setEnabled(id: Long, enabled: Boolean)
+
+    @Query("DELETE FROM automations WHERE id = :id")
+    suspend fun delete(id: Long)
+}

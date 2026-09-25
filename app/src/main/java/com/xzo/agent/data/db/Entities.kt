@@ -68,3 +68,27 @@ data class ArtifactEntity(
     val bytes: Int,
     val createdAt: Long = System.currentTimeMillis()
 )
+
+/**
+ * A task Xzo runs on its own schedule (daily briefing, price watch, standup notes…).
+ * Executed by WorkManager, the result is saved to a conversation and announced
+ * through a notification.
+ */
+@Entity(tableName = "automations")
+data class AutomationEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val prompt: String,
+    /** Local time of day, 0-23. */
+    val hour: Int = 8,
+    val minute: Int = 0,
+    val enabled: Boolean = true,
+    /** CHAT | AGENT | DEEP_RESEARCH */
+    val mode: String = "AGENT",
+    val notify: Boolean = true,
+    val lastRunAt: Long = 0,
+    val lastResult: String? = null,
+    val lastOk: Boolean = true,
+    val conversationId: Long = 0,
+    val createdAt: Long = System.currentTimeMillis()
+)

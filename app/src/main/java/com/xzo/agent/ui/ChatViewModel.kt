@@ -49,7 +49,8 @@ data class ChatUiState(
     val refreshingModels: Boolean = false,
     val mode: com.xzo.agent.agent.AgentMode = com.xzo.agent.agent.AgentMode.AGENT,
     val plan: String? = null,
-    val lastError: String? = null
+    val lastError: String? = null,
+    val automations: List<com.xzo.agent.data.db.AutomationEntity> = emptyList()
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -79,6 +80,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             repo.artifacts().collectLatest { list -> _state.update { it.copy(artifacts = list) } }
+        }
+        viewModelScope.launch {
+            repo.automations().collectLatest { list -> _state.update { it.copy(automations = list) } }
         }
         viewModelScope.launch {
             @Suppress("OPT_IN_USAGE")
@@ -494,6 +498,41 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun forgetMemory(key: String) = viewModelScope.launch { container.memory.forget(key) }
 
     fun deleteArtifact(id: Long) = viewModelScope.launch { repo.deleteArtifact(id) }
+
+    /* ------------------------------ automations ------------------------------ */
+
+    fun saveAutomation(a: com.xzo.agent.data.db.AutomationEntity) = viewModelScope.launch {
+        val id = repo.upsertAutomation(a)
+        repo.automationById(id)?.let {
+            com.xzo.agent.core.AutomationScheduler.schedule(getApplication(), it)
+        }
+        banner(
+            if (a.enabled) "Scheduled “${a.title}” daily at %02d:%02d".format(a.hour, a.minute)
+            else "Saved “${a.title}” (disabled)"
+        )
+    }
+
+    fun toggleAutomation(a: com.xzo.agent.data.db.AutomationEntity, enabled: Boolean) =
+        viewModelScope.launch {
+            repo.setAutomationEnabled(a.id, enabled)
+            val updated = a.copy(enabled = enabled)
+            if (enabled) com.xzo.agent.core.AutomationScheduler.schedule(getApplication(), updated)
+            else com.xzo.agent.core.AutomationScheduler.cancel(getApplication(), a.id)
+        }
+
+    fun runAutomationNow(a: com.xzo.agent.data.db.AutomationEntity) {
+        com.xzo.agent.core.AutomationScheduler.runNow(getApplication(), a.id)
+        banner("Running “${a.title}” now — you'll get a notification")
+    }
+
+    fun deleteAutomation(a: com.xzo.agent.data.db.AutomationEntity) = viewModelScope.launch {
+        com.xzo.agent.core.AutomationScheduler.cancel(getApplication(), a.id)
+        repo.deleteAutomation(a.id)
+    }
+
+    fun openAutomationChat(a: com.xzo.agent.data.db.AutomationEntity) {
+        if (a.conversationId > 0) select(a.conversationId)
+    }
 
     fun exportBackup() = viewModelScope.launch {
         val saved = container.backup.export()
