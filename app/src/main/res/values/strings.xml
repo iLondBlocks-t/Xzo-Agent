@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Xzo Agent</string>
+    <string name="tagline">Plan · Act · Observe · Verify</string>
+    <string name="input_hint">Ask Xzo anything…</string>
+    <string name="send">Send</string>
+    <string name="attach">Attach a file</string>
+    <string name="stop">Stop</string>
+    <string name="verified">Verified</string>
+    <string name="settings">Settings</string>
+    <string name="chats">Chats</string>
+    <string name="new_chat">New chat</string>
+    <string name="free_notice">Free &amp; unlimited: this app never charges you or caps you. Real limits come only from Groq / OpenRouter free tiers.</string>
+</resources>

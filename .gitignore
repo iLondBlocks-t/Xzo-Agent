@@ -1,0 +1,23 @@
+# Secrets / signing
+local.properties
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+
+# Build output
+.gradle/
+build/
+app/build/
+captures/
+out/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+local.gradle
+
+# Misc
+*.log
+.kotlin/
