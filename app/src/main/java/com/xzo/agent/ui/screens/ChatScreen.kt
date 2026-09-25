@@ -70,7 +70,8 @@ fun ChatScreen(
     vm: ChatViewModel,
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenModels: () -> Unit
+    onOpenModels: () -> Unit,
+    onMic: () -> Unit
 ) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -162,7 +163,9 @@ fun ChatScreen(
                         busy = state.busy,
                         attachments = state.attachments,
                         onRemoveAttachment = vm::removeAttachment,
-                        enterSends = state.settings.enterSends
+                        enterSends = state.settings.enterSends,
+                        voice = state.voice,
+                        onMic = onMic
                     )
                 }
             }
@@ -187,6 +190,8 @@ fun ChatScreen(
                         trace = vm.traceOf(m),
                         showTrace = state.settings.showTrace,
                         onRetry = vm::retryLast,
+                        onSpeak = { vm.speak(m) },
+                        speaking = state.speakingMessageId == m.id,
                         onShare = { text -> shareText(context, text) },
                         onOpenArtifact = { uri -> openUri(context, uri) }
                     )

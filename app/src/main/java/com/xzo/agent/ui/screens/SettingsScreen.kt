@@ -44,7 +44,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.xzo.agent.BuildConfig
 import com.xzo.agent.core.ThemeMode
-import com.xzo.agent.data.remote.ModelCatalog
 import com.xzo.agent.ui.ChatUiState
 import com.xzo.agent.ui.ChatViewModel
 import com.xzo.agent.ui.components.GradientBackground
@@ -81,19 +80,15 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
 
                 item {
                     Card("Models") {
+                        androidx.compose.material3.TextButton(onClick = { vm.refreshModels() }) {
+                            Text(if (state.refreshingModels) "Refreshing…" else "Refresh live model list from providers")
+                        }
                         Text(
                             "Primary model",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        ModelCatalog.groq.forEach { m ->
-                            SelectableRow(
-                                title = m.label,
-                                subtitle = m.description,
-                                selected = s.primaryModel == m.id
-                            ) { scope.launch { repo.setPrimaryModel(m.id) } }
-                        }
-                        ModelCatalog.openRouter.forEach { m ->
+                        state.models.forEach { m ->
                             SelectableRow(
                                 title = m.label,
                                 subtitle = m.description,
@@ -106,13 +101,15 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        ModelCatalog.openRouter.forEach { m ->
-                            SelectableRow(
-                                title = m.label,
-                                subtitle = m.description,
-                                selected = s.fallbackModel == m.id
-                            ) { scope.launch { repo.setFallbackModel(m.id) } }
-                        }
+                        state.models
+                            .filter { it.provider == com.xzo.agent.data.remote.Provider.OPENROUTER }
+                            .forEach { m ->
+                                SelectableRow(
+                                    title = m.label,
+                                    subtitle = m.description,
+                                    selected = s.fallbackModel == m.id
+                                ) { scope.launch { repo.setFallbackModel(m.id) } }
+                            }
                     }
                 }
 
@@ -121,6 +118,11 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         ToggleRow("Tool use", "Let the agent search, run code and write files", s.toolsEnabled) {
                             scope.launch { repo.setToolsEnabled(it) }
                         }
+                        ToggleRow(
+                            "Groq built-in tools",
+                            "Use server-side browser search (Exa) and the Python sandbox (E2B) when the model supports them",
+                            s.useBuiltInTools
+                        ) { scope.launch { repo.setBuiltInTools(it) } }
                         ToggleRow("Self-verification", "Second pass that checks the answer before showing it", s.selfVerify) {
                             scope.launch { repo.setSelfVerify(it) }
                         }
@@ -135,6 +137,23 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         }
                         ToggleRow("Enter key sends", "Otherwise Enter inserts a newline", s.enterSends) {
                             scope.launch { repo.setEnterSends(it) }
+                        }
+
+                        Text(
+                            "Reasoning effort",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        listOf("low", "medium", "high").forEach { effort ->
+                            SelectableRow(
+                                title = effort.replaceFirstChar { it.uppercase() },
+                                subtitle = when (effort) {
+                                    "low" -> "Fastest, fewest tokens — best with browser search"
+                                    "medium" -> "Balanced (default)"
+                                    else -> "Deepest thinking, slowest, heaviest on rate limits"
+                                },
+                                selected = s.reasoningEffort == effort
+                            ) { scope.launch { repo.setReasoningEffort(effort) } }
                         }
 
                         SliderRow("Temperature", s.temperature.toFloat(), 0f, 1.5f, "%.2f") {
@@ -202,6 +221,11 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         ToggleRow("Haptics", "Subtle vibration on send", s.haptics) {
                             scope.launch { repo.setHaptics(it) }
                         }
+                        ToggleRow(
+                            "Read replies aloud",
+                            "Speak every answer with the offline device TTS engine",
+                            s.speakReplies
+                        ) { scope.launch { repo.setSpeakReplies(it) } }
                     }
                 }
 

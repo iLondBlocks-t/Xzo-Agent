@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.StopCircle
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +54,8 @@ fun MessageBubble(
     trace: AgentTraceLog,
     showTrace: Boolean,
     onRetry: () -> Unit,
+    onSpeak: () -> Unit = {},
+    speaking: Boolean = false,
     onShare: (String) -> Unit,
     onOpenArtifact: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -150,6 +154,14 @@ fun MessageBubble(
                     IconButton(onClick = { onShare(message.content) }, modifier = Modifier.size(28.dp)) {
                         Icon(
                             Icons.Rounded.Share, "Share",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onSpeak, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            if (speaking) Icons.Rounded.StopCircle else Icons.Rounded.VolumeUp,
+                            if (speaking) "Stop reading" else "Read aloud",
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -14,6 +14,7 @@ import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
@@ -38,7 +39,13 @@ data class TurnResult(
     val model: String,
     val provider: Provider,
     val usage: Usage?,
-    val executedServerTools: List<String> = emptyList()
+    val reasoning: String? = null,
+    val executedTools: List<ExecutedTool> = emptyList()
+)
+
+private val BLOCKED_PREFIXES = listOf(
+    "whisper", "distil-whisper", "playai-tts", "canopylabs/", "meta-llama/llama-guard",
+    "meta-llama/llama-prompt-guard"
 )
 
 class LlmClient(
@@ -68,6 +75,29 @@ class LlmClient(
     fun hasKeyFor(provider: Provider): Boolean = when (provider) {
         Provider.GROQ -> keyProvider.groqKey().isNotBlank()
         Provider.OPENROUTER -> keyProvider.openRouterKey().isNotBlank()
+    }
+
+    /**
+     * Normalises a request for a specific provider/model:
+     *  - Groq wants `max_completion_tokens`; OpenRouter wants `max_tokens`.
+     *  - Groq built-in tools are appended for models that support them.
+     *  - Models without client tool-calling get the tools array stripped.
+     */
+    fun adapt(spec: ModelSpec, request: ChatRequest, allowBuiltIns: Boolean): ChatRequest {
+        val clientTools = if (spec.clientTools) request.tools.orEmpty() else emptyList()
+        val builtIns = if (allowBuiltIns && spec.provider == Provider.GROQ)
+            spec.builtInTools.map { ToolDef(type = it, function = null) } else emptyList()
+        val tools = (clientTools + builtIns).ifEmpty { null }
+        val limit = request.maxTokens ?: request.maxCompletionTokens
+        return request.copy(
+            model = spec.id,
+            tools = tools,
+            toolChoice = if (tools == null) null else request.toolChoice,
+            maxTokens = if (spec.provider == Provider.OPENROUTER) limit else null,
+            maxCompletionTokens = if (spec.provider == Provider.GROQ) limit else null,
+            reasoningEffort = if (spec.reasoning && spec.provider == Provider.GROQ)
+                (request.reasoningEffort ?: "medium") else null
+        )
     }
 
     private fun buildRequest(spec: ModelSpec, bodyJson: String): Request {
@@ -108,7 +138,9 @@ class LlmClient(
                     finishReason = choice.finishReason,
                     model = parsed.model.ifBlank { spec.id },
                     provider = spec.provider,
-                    usage = parsed.usage
+                    usage = parsed.usage,
+                    reasoning = msg.reasoning,
+                    executedTools = msg.executedTools.orEmpty()
                 )
             }
         }
@@ -193,6 +225,74 @@ class LlmClient(
         val args = StringBuilder()
     }
 
+    /**
+     * Speech-to-text through Groq Whisper (free tier). Used by the mic button.
+     * Returns the transcript, or throws [LlmException].
+     */
+    suspend fun transcribe(file: java.io.File, language: String? = null): String =
+        withContext(Dispatchers.IO) {
+            if (!hasKeyFor(Provider.GROQ)) throw LlmException("A Groq key is required for voice input.")
+            val body = okhttp3.MultipartBody.Builder()
+                .setType(okhttp3.MultipartBody.FORM)
+                .addFormDataPart(
+                    "file", file.name,
+                    file.asRequestBody("audio/mp4".toMediaType())
+                )
+                .addFormDataPart("model", ModelCatalog.WHISPER_TURBO)
+                .addFormDataPart("response_format", "json")
+                .apply { if (!language.isNullOrBlank()) addFormDataPart("language", language) }
+                .build()
+            val req = Request.Builder()
+                .url("https://api.groq.com/openai/v1/audio/transcriptions")
+                .header("Authorization", "Bearer ${'$'}{keyProvider.groqKey()}")
+                .post(body)
+                .build()
+            http.newCall(req).executeSuspending().use { r ->
+                val text = r.body?.string().orEmpty()
+                if (!r.isSuccessful) throw errorFor(r, text)
+                runCatching {
+                    WireJson.parseToJsonElement(text).let { el ->
+                        (el as kotlinx.serialization.json.JsonObject)["text"]
+                            ?.let { p -> (p as kotlinx.serialization.json.JsonPrimitive).content }
+                    }
+                }.getOrNull().orEmpty()
+            }
+        }
+
+    /** Live model discovery from the provider's OpenAI-compatible /models endpoint. */
+    suspend fun listModels(provider: Provider): List<ModelSpec> = withContext(Dispatchers.IO) {
+        if (!hasKeyFor(provider)) return@withContext emptyList()
+        val b = Request.Builder().url(provider.modelsEndpoint).get()
+        when (provider) {
+            Provider.GROQ -> b.header("Authorization", "Bearer ${'$'}{keyProvider.groqKey()}")
+            Provider.OPENROUTER -> b.header("Authorization", "Bearer ${'$'}{keyProvider.openRouterKey()}")
+        }
+        val response = http.newCall(b.build()).executeSuspending()
+        response.use { r ->
+            val text = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw errorFor(r, text)
+            val parsed = WireJson.decodeFromString(ModelListResponse.serializer(), text)
+            parsed.data
+                .filter { it.active && it.id.isNotBlank() }
+                .filterNot { id -> BLOCKED_PREFIXES.any { id.id.startsWith(it) } }
+                .map { e ->
+                    val known = ModelCatalog.all.firstOrNull { it.id == e.id }
+                    known ?: ModelSpec(
+                        id = e.id,
+                        provider = provider,
+                        label = e.name ?: e.id,
+                        description = e.description?.take(140)
+                            ?: "Discovered from ${'$'}{provider.label} /models",
+                        contextTokens = e.contextWindow ?: e.contextLength ?: 8192,
+                        free = e.id.endsWith(":free") ||
+                            (e.pricing?.prompt == "0" || e.pricing?.prompt == "0.0"),
+                        clientTools = true
+                    )
+                }
+                .sortedBy { it.id }
+        }
+    }
+
     private fun errorFor(r: Response, text: String): LlmException {
         val friendly = extractMessage(text)
         val retryAfter = r.header("retry-after")?.toLongOrNull()?.times(1000) ?: 0L
@@ -200,6 +300,15 @@ class LlmClient(
             401, 403 -> LlmException(
                 "Auth rejected (${r.code}). Check the API key for this provider. $friendly".trim(),
                 r.code
+            )
+            400 -> LlmException(
+                if (friendly.contains("decommission", true) || friendly.contains("does not exist", true))
+                    "This model is no longer available on ${'$'}{r.request.url.host}. $friendly".trim()
+                else "Bad request (400). $friendly".trim(),
+                r.code,
+                retryable = friendly.contains("decommission", true) ||
+                    friendly.contains("does not exist", true) ||
+                    friendly.contains("tool", true)
             )
             404 -> LlmException("Model not found on this provider (404). $friendly".trim(), r.code, retryable = true)
             408, 409, 425 -> LlmException("Transient error ${r.code}. $friendly".trim(), r.code, retryable = true)

@@ -34,6 +34,16 @@ object WebSearchTool : AgentTool {
         if (q.isEmpty()) return ToolResult.fail("query is required")
         val limit = args.intOr("max_results", 6).coerceIn(1, 10)
         ctx.emit("Searching the web for “$q”…")
+
+        // Preferred path: Groq's built-in browser search (Exa) via a small sub-call.
+        if (ctx.llm.hasKeyFor(com.xzo.agent.data.remote.Provider.GROQ)) {
+            val viaGroq = runCatching { groqBrowserSearch(q, limit, ctx) }.getOrNull()
+            if (!viaGroq.isNullOrBlank()) {
+                return ToolResult.ok(viaGroq, "Browsed the web for “$q”")
+            }
+        }
+
+        // Key-less fallback: DuckDuckGo → Wikipedia.
         return try {
             val hits = ctx.web.search(q, limit)
             if (hits.isEmpty()) return ToolResult.ok(
@@ -59,6 +69,49 @@ object WebSearchTool : AgentTool {
 }
 
 /** Fetch and read a specific page so the agent can go beyond snippets. */
+private suspend fun groqBrowserSearch(query: String, limit: Int, ctx: ToolContext): String? {
+    val spec = com.xzo.agent.data.remote.ModelCatalog.GPT_OSS_20B
+    val res = ctx.llm.complete(
+        spec,
+        com.xzo.agent.data.remote.ChatRequest(
+            model = spec.id,
+            messages = listOf(
+                com.xzo.agent.data.remote.WireMessage(
+                    "system",
+                    "You are a search back-end. Use browser search, then return up to $limit results as a " +
+                        "plain list. For each: title, URL, and a two-sentence factual summary. " +
+                        "No opinions, no preamble."
+                ),
+                com.xzo.agent.data.remote.WireMessage("user", query)
+            ),
+            temperature = 0.2,
+            maxCompletionTokens = 1600,
+            reasoningEffort = "low",
+            tools = listOf(com.xzo.agent.data.remote.ToolDef(type = "browser_search")),
+            toolChoice = "required"
+        )
+    )
+    val sources = res.executedTools
+        .flatMap { it.searchResults?.results.orEmpty() }
+        .distinctBy { it.url }
+        .take(limit)
+    val body = buildString {
+        appendLine("Live web results for \"$query\" (Groq browser search):")
+        appendLine()
+        appendLine(res.content.trim())
+        if (sources.isNotEmpty()) {
+            appendLine()
+            appendLine("Sources:")
+            sources.forEachIndexed { i, s ->
+                appendLine("[${'$'}{i + 1}] ${'$'}{s.title} — ${'$'}{s.url}")
+            }
+        }
+        appendLine()
+        appendLine("Cite the URLs you actually used.")
+    }
+    return body.takeIf { res.content.isNotBlank() || sources.isNotEmpty() }
+}
+
 object FetchUrlTool : AgentTool {
     override val name = "fetch_url"
     override val description =

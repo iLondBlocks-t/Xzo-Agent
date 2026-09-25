@@ -7,6 +7,7 @@ import com.xzo.agent.agent.schema
 import com.xzo.agent.agent.str
 import com.xzo.agent.data.remote.ChatRequest
 import com.xzo.agent.data.remote.ModelCatalog
+import com.xzo.agent.data.remote.ToolDef
 import com.xzo.agent.data.remote.Provider
 import com.xzo.agent.data.remote.WireMessage
 import com.xzo.agent.util.Calc
@@ -58,24 +59,29 @@ object CodeExecutionTool : AgentTool {
             )
         }
         return try {
+            val spec = ModelCatalog.GPT_OSS_20B
             val res = ctx.llm.complete(
-                ModelCatalog.GROQ_COMPOUND,
+                spec,
                 ChatRequest(
-                    model = ModelCatalog.GROQ_COMPOUND.id,
+                    model = spec.id,
                     messages = listOf(
                         WireMessage(
                             role = "system",
                             content = "You are a code runner. Execute the user's code with your Python tool. " +
-                                "Reply with ONLY the resulting output, wrapped in a fenced block. " +
-                                "No commentary, no explanation. If the code errors, return the traceback."
+                                "Reply with ONLY the resulting output. No commentary. " +
+                                "If the code errors, return the traceback."
                         ),
                         WireMessage(role = "user", content = "```python\n$code\n```")
                     ),
                     temperature = 0.0,
-                    maxTokens = 1400
+                    maxCompletionTokens = 1600,
+                    reasoningEffort = "low",
+                    tools = listOf(ToolDef(type = "code_interpreter")),
+                    toolChoice = "required"
                 )
             )
-            val out = res.content.trim()
+            val executed = res.executedTools.firstOrNull()?.codeResults?.joinToString("\n") { it.text }
+            val out = (executed?.takeIf { it.isNotBlank() } ?: res.content).trim()
             if (out.isEmpty()) ToolResult.fail("Sandbox returned no output.")
             else ToolResult.ok("Execution output:\n$out", out.lines().firstOrNull()?.take(90).orEmpty())
         } catch (t: Throwable) {

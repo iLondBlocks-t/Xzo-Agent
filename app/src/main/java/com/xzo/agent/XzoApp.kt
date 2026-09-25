@@ -58,4 +58,7 @@ class AppContainer(app: Application) {
     val memory = MemoryStore(db.memories())
     val engine = AgentEngine(app, llm, web, files, memory)
     val chatRepo = ChatRepository(db, engine, settingsRepo, files)
+    val recorder = com.xzo.agent.core.VoiceRecorder(app)
+    val speaker = com.xzo.agent.core.Speaker(app)
+    val modelRegistry = com.xzo.agent.data.repo.ModelRegistry(llm, scope)
 }

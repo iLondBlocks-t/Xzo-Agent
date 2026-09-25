@@ -48,8 +48,10 @@ data class AgentInput(
     val userText: String,
     val history: List<WireMessage>,
     val attachments: List<Attachment> = emptyList(),
-    val modelId: String = ModelCatalog.GROQ_COMPOUND.id,
-    val fallbackModelId: String = ModelCatalog.OR_LLAMA_FREE.id,
+    val modelId: String = ModelCatalog.DEFAULT_PRIMARY,
+    val fallbackModelId: String = ModelCatalog.DEFAULT_FALLBACK,
+    val useBuiltInTools: Boolean = true,
+    val reasoningEffort: String = "medium",
     val persona: String = Prompts.DEFAULT_PERSONA,
     val temperature: Double = 0.6,
     val maxTokens: Int = 2048,
@@ -159,7 +161,8 @@ class AgentEngine(
                 temperature = input.temperature,
                 maxTokens = input.maxTokens,
                 tools = if (tools.isEmpty()) null else tools.map { it.toToolDef() },
-                toolChoice = if (tools.isEmpty()) null else "auto"
+                toolChoice = if (tools.isEmpty()) null else "auto",
+                reasoningEffort = input.reasoningEffort
             )
 
             val turn = try {
@@ -303,16 +306,11 @@ class AgentEngine(
 
         var lastError: Throwable? = null
         chain.forEachIndexed { index, spec ->
-            val supportsTools = spec.clientTools
-            val req = request.copy(
-                model = spec.id,
-                tools = if (supportsTools) request.tools else null,
-                toolChoice = if (supportsTools) request.toolChoice else null
-            )
-            // up to 3 attempts per model with exponential backoff on 429/5xx
+            var allowBuiltIns = input.useBuiltInTools
             var attempt = 0
             while (attempt < 3) {
                 attempt++
+                val req = llm.adapt(spec, request, allowBuiltIns)
                 try {
                     if (index > 0 && attempt == 1) {
                         onFallback()
@@ -324,15 +322,44 @@ class AgentEngine(
                             )
                         )
                     }
-                    return if (streaming) {
+                    val result = if (streaming) {
                         llm.stream(spec, req) { piece -> onEvent(AgentEvent.Delta(piece)) }
                     } else {
                         llm.complete(spec, req)
                     }
+                    // Surface Groq server-side tool executions in the trace.
+                    result.executedTools.forEach { et ->
+                        val hits = et.searchResults?.results?.size ?: 0
+                        val code = et.codeResults?.firstOrNull()?.text
+                        onEvent(
+                            AgentEvent.ToolEnd(
+                                ToolTrace(
+                                    tool = "groq:" + et.name.ifBlank { et.type },
+                                    argsPreview = et.arguments.take(160),
+                                    summary = when {
+                                        hits > 0 -> "$hits web sources browsed"
+                                        !code.isNullOrBlank() -> "output: " + code.take(70)
+                                        else -> et.output?.take(70) ?: "executed server-side"
+                                    },
+                                    ok = true,
+                                    durationMs = 0,
+                                    fullOutput = (code ?: et.output.orEmpty()).take(4000)
+                                )
+                            )
+                        )
+                    }
+                    return result
                 } catch (ce: CancellationException) {
                     throw ce
                 } catch (e: LlmException) {
                     lastError = e
+                    val msg = e.message.orEmpty()
+                    // A 400 complaining about tools → retry once without built-in tools.
+                    if (e.httpCode == 400 && allowBuiltIns && msg.contains("tool", true)) {
+                        allowBuiltIns = false
+                        onEvent(AgentEvent.Status("Retrying without server-side tools…"))
+                        continue
+                    }
                     if (!e.retryable || attempt >= 3) break
                     val backoff = if (e.rateLimited) e.retryAfterMs.coerceAtLeast(1500L) * attempt
                     else 900L * attempt * attempt
@@ -362,25 +389,28 @@ class AgentEngine(
         evidence: String,
         onEvent: suspend (AgentEvent) -> Unit
     ): Verification {
-        val reviewerChain = listOf(
-            ModelCatalog.GROQ_LLAMA_70B,
-            ModelCatalog.byId(input.fallbackModelId),
-            ModelCatalog.GROQ_LLAMA_8B
-        ).filter { llm.hasKeyFor(it.provider) }
+        val reviewerChain = (ModelCatalog.utility() + ModelCatalog.byId(input.fallbackModelId))
+            .distinctBy { it.id }
+            .filter { llm.hasKeyFor(it.provider) }
 
         val prompt = Prompts.verification(input.userText, draft, evidence)
         for (spec in reviewerChain) {
             val res = runCatching {
                 llm.complete(
                     spec,
-                    ChatRequest(
-                        model = spec.id,
-                        messages = listOf(
-                            WireMessage("system", "You are a meticulous answer reviewer. Follow the output format exactly."),
-                            WireMessage("user", prompt)
+                    llm.adapt(
+                        spec,
+                        ChatRequest(
+                            model = spec.id,
+                            messages = listOf(
+                                WireMessage("system", "You are a meticulous answer reviewer. Follow the output format exactly."),
+                                WireMessage("user", prompt)
+                            ),
+                            temperature = 0.0,
+                            maxTokens = 1400,
+                            reasoningEffort = "low"
                         ),
-                        temperature = 0.0,
-                        maxTokens = 1400
+                        allowBuiltIns = false
                     )
                 )
             }.getOrNull() ?: continue
@@ -435,18 +465,22 @@ class AgentEngine(
 
     /** Short auto-title for a new conversation. */
     suspend fun titleFor(firstMessage: String): String? {
-        val spec = listOf(ModelCatalog.GROQ_LLAMA_8B, ModelCatalog.byId(ModelCatalog.OR_MISTRAL_FREE.id))
-            .firstOrNull { llm.hasKeyFor(it.provider) } ?: return null
+        val spec = ModelCatalog.utility().firstOrNull { llm.hasKeyFor(it.provider) } ?: return null
         return runCatching {
             llm.complete(
                 spec,
-                ChatRequest(
-                    model = spec.id,
-                    messages = listOf(WireMessage("user", Prompts.titling(firstMessage))),
-                    temperature = 0.3,
-                    maxTokens = 24
+                llm.adapt(
+                    spec,
+                    ChatRequest(
+                        model = spec.id,
+                        messages = listOf(WireMessage("user", Prompts.titling(firstMessage))),
+                        temperature = 0.3,
+                        maxTokens = 32,
+                        reasoningEffort = "low"
+                    ),
+                    allowBuiltIns = false
                 )
-            ).content.trim().trim('"', '.', '،').take(48).ifBlank { null }
+            ).content.trim().trim('"', '.', '،').lines().last().take(48).ifBlank { null }
         }.getOrNull()
     }
 }

@@ -49,7 +49,36 @@ data class WireMessage(
     val content: String? = null,
     @SerialName("tool_calls") val toolCalls: List<ToolCall>? = null,
     @SerialName("tool_call_id") val toolCallId: String? = null,
-    val name: String? = null
+    val name: String? = null,
+    /** GPT-OSS reasoning trace (Groq). Never sent back up. */
+    val reasoning: String? = null,
+    /** Groq server-side tool executions (browser_search / code_interpreter). */
+    @SerialName("executed_tools") val executedTools: List<ExecutedTool>? = null
+)
+
+@Serializable
+data class ExecutedTool(
+    val index: Int = 0,
+    val type: String = "function",
+    val name: String = "",
+    val arguments: String = "",
+    val output: String? = null,
+    @SerialName("code_results") val codeResults: List<CodeResult>? = null,
+    @SerialName("search_results") val searchResults: SearchResults? = null
+)
+
+@Serializable
+data class CodeResult(val text: String = "")
+
+@Serializable
+data class SearchResults(val results: List<SearchResultItem>? = null)
+
+@Serializable
+data class SearchResultItem(
+    val title: String = "",
+    val url: String = "",
+    val content: String = "",
+    val score: Double = 0.0
 )
 
 @Serializable
@@ -62,7 +91,8 @@ data class FunctionDef(
 @Serializable
 data class ToolDef(
     val type: String = "function",
-    val function: FunctionDef
+    /** Null for Groq built-in tools such as {"type":"browser_search"}. */
+    val function: FunctionDef? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -72,6 +102,8 @@ data class ChatRequest(
     val messages: List<WireMessage>,
     val temperature: Double? = null,
     @SerialName("max_tokens") val maxTokens: Int? = null,
+    @SerialName("max_completion_tokens") val maxCompletionTokens: Int? = null,
+    @SerialName("reasoning_effort") val reasoningEffort: String? = null,
     @SerialName("top_p") val topP: Double? = null,
     val stream: Boolean = false,
     val tools: List<ToolDef>? = null,
@@ -137,6 +169,29 @@ data class StreamChoice(
     val index: Int = 0,
     val delta: DeltaMessage? = null,
     @SerialName("finish_reason") val finishReason: String? = null
+)
+
+@Serializable
+data class ModelListEntry(
+    val id: String = "",
+    @SerialName("owned_by") val ownedBy: String? = null,
+    val active: Boolean = true,
+    @SerialName("context_window") val contextWindow: Int? = null,
+    val name: String? = null,
+    val description: String? = null,
+    val pricing: ModelPricing? = null,
+    @SerialName("context_length") val contextLength: Int? = null
+)
+
+@Serializable
+data class ModelPricing(
+    val prompt: String? = null,
+    val completion: String? = null
+)
+
+@Serializable
+data class ModelListResponse(
+    val data: List<ModelListEntry> = emptyList()
 )
 
 @Serializable

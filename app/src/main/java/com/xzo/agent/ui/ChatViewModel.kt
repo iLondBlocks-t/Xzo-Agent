@@ -42,8 +42,14 @@ data class ChatUiState(
     val banner: String? = null,
     val settings: AppSettings = AppSettings(),
     val searchQuery: String = "",
-    val searchResults: List<MessageEntity> = emptyList()
+    val searchResults: List<MessageEntity> = emptyList(),
+    val voice: VoiceState = VoiceState.IDLE,
+    val speakingMessageId: Long = -1,
+    val models: List<com.xzo.agent.data.remote.ModelSpec> = com.xzo.agent.data.remote.ModelCatalog.known(),
+    val refreshingModels: Boolean = false
 )
+
+enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -57,6 +63,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private var runJob: Job? = null
 
     val fileRequests = container.files.requests
+
+    /** Emitted when the mic is tapped without RECORD_AUDIO permission. */
+    val micPermissionRequests = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 2)
 
     init {
         viewModelScope.launch {
@@ -77,6 +86,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             @Suppress("OPT_IN_USAGE")
             currentId.flatMapLatest { id -> repo.conversation(id) }
                 .collectLatest { c -> _state.update { it.copy(title = c?.title ?: "New chat") } }
+        }
+        viewModelScope.launch {
+            container.modelRegistry.models.collectLatest { m -> _state.update { it.copy(models = m) } }
+        }
+        viewModelScope.launch {
+            container.modelRegistry.refreshing.collectLatest { r -> _state.update { it.copy(refreshingModels = r) } }
         }
         viewModelScope.launch {
             val first = repo.conversations().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()).value
@@ -211,6 +226,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 selfVerify = s.settings.selfVerify,
                 streaming = s.settings.streaming,
                 maxIterations = s.settings.maxIterations,
+                useBuiltInTools = s.settings.useBuiltInTools,
+                reasoningEffort = s.settings.reasoningEffort,
                 enabledTools = container.engine.allTools
                     .map { it.name }
                     .filterNot { it in s.settings.disabledTools }
@@ -269,6 +286,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             if (_state.value.settings.autoTitle) repo.maybeAutoTitle(cid, prompt)
+            if (_state.value.settings.speakReplies && outcome != null && outcome.answer.isNotBlank()) {
+                container.speaker.speak(outcome.answer)
+            }
 
             _state.update {
                 it.copy(busy = false, status = null, streamingText = "", verifying = false, liveTraces = emptyList())
@@ -296,6 +316,82 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             is AgentEvent.Verified -> _state.update { it.copy(verifying = false, status = null) }
             is AgentEvent.Artifact -> _state.update { it.copy(banner = "Saved ${event.name}") }
         }
+    }
+
+    /* ------------------------------ voice ------------------------------ */
+
+    fun refreshModels() = container.modelRegistry.refresh { msg -> banner(msg) }
+
+    fun onMicTap(hasPermission: Boolean) {
+        if (!hasPermission) {
+            viewModelScope.launch { micPermissionRequests.emit(Unit) }
+            return
+        }
+        when (_state.value.voice) {
+            VoiceState.RECORDING -> finishRecording()
+            VoiceState.TRANSCRIBING -> Unit
+            VoiceState.IDLE -> {
+                val started = container.recorder.start()
+                if (started) {
+                    _state.update { it.copy(voice = VoiceState.RECORDING) }
+                    banner("Listening… tap the mic again to stop")
+                } else {
+                    banner("Could not start the microphone")
+                }
+            }
+        }
+    }
+
+    private fun finishRecording() {
+        val file = container.recorder.stop()
+        if (file == null) {
+            _state.update { it.copy(voice = VoiceState.IDLE) }
+            banner("Recording too short")
+            return
+        }
+        _state.update { it.copy(voice = VoiceState.TRANSCRIBING) }
+        viewModelScope.launch {
+            val lang = _state.value.settings.voiceLanguage.takeIf { it.isNotBlank() }
+            val text = runCatching { container.llm.transcribe(file, lang) }
+                .getOrElse { err ->
+                    banner("Transcription failed: ${err.message}")
+                    ""
+                }
+            runCatching { file.delete() }
+            _state.update {
+                it.copy(
+                    voice = VoiceState.IDLE,
+                    input = (it.input.trim() + " " + text.trim()).trim()
+                )
+            }
+            if (text.isNotBlank()) banner(null)
+        }
+    }
+
+    fun cancelRecording() {
+        container.recorder.cancel()
+        _state.update { it.copy(voice = VoiceState.IDLE) }
+    }
+
+    fun speak(message: MessageEntity) {
+        if (_state.value.speakingMessageId == message.id) {
+            container.speaker.stop()
+            _state.update { it.copy(speakingMessageId = -1) }
+            return
+        }
+        _state.update { it.copy(speakingMessageId = message.id) }
+        viewModelScope.launch { container.speaker.speak(message.content) }
+    }
+
+    fun stopSpeaking() {
+        container.speaker.stop()
+        _state.update { it.copy(speakingMessageId = -1) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        container.recorder.cancel()
+        container.speaker.stop()
     }
 
     /* ------------------------------ settings ------------------------------ */

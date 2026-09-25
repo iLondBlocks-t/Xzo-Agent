@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +56,8 @@ fun InputBar(
     attachments: List<Attachment>,
     onRemoveAttachment: (String) -> Unit,
     enterSends: Boolean,
+    voice: com.xzo.agent.ui.VoiceState,
+    onMic: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -113,6 +116,26 @@ fun InputBar(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
+                }
+
+                IconButton(onClick = onMic, modifier = Modifier.size(44.dp)) {
+                    when (voice) {
+                        com.xzo.agent.ui.VoiceState.RECORDING ->
+                            ThinkingDots(dotSize = 6)
+                        com.xzo.agent.ui.VoiceState.TRANSCRIBING ->
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        com.xzo.agent.ui.VoiceState.IDLE ->
+                            Icon(
+                                Icons.Rounded.Mic,
+                                contentDescription = "Voice input",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                    }
                 }
 
                 TextField(

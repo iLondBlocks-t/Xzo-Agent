@@ -126,9 +126,9 @@ object SummarizeTool : AgentTool {
         ctx.emit("Summarising ${text.length} characters…")
         return try {
             val res = ctx.llm.complete(
-                com.xzo.agent.data.remote.ModelCatalog.GROQ_LLAMA_8B,
+                com.xzo.agent.data.remote.ModelCatalog.GPT_OSS_20B,
                 com.xzo.agent.data.remote.ChatRequest(
-                    model = com.xzo.agent.data.remote.ModelCatalog.GROQ_LLAMA_8B.id,
+                    model = com.xzo.agent.data.remote.ModelCatalog.GPT_OSS_20B.id,
                     messages = listOf(
                         com.xzo.agent.data.remote.WireMessage(
                             "system",
@@ -137,7 +137,8 @@ object SummarizeTool : AgentTool {
                         com.xzo.agent.data.remote.WireMessage("user", text.take(24000))
                     ),
                     temperature = 0.2,
-                    maxTokens = 1200
+                    maxCompletionTokens = 1400,
+                    reasoningEffort = "low"
                 )
             )
             ToolResult.ok(res.content, "Summarised ${text.length} chars")

@@ -1,8 +1,16 @@
 package com.xzo.agent.data.remote
 
-enum class Provider(val label: String, val endpoint: String) {
-    GROQ("Groq", "https://api.groq.com/openai/v1/chat/completions"),
-    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions")
+enum class Provider(val label: String, val endpoint: String, val modelsEndpoint: String) {
+    GROQ(
+        "Groq",
+        "https://api.groq.com/openai/v1/chat/completions",
+        "https://api.groq.com/openai/v1/models"
+    ),
+    OPENROUTER(
+        "OpenRouter",
+        "https://openrouter.ai/api/v1/chat/completions",
+        "https://openrouter.ai/api/v1/models"
+    )
 }
 
 data class ModelSpec(
@@ -10,102 +18,170 @@ data class ModelSpec(
     val provider: Provider,
     val label: String,
     val description: String,
-    /** Server-side agentic model with built-in web search + code execution. */
-    val serverSideTools: Boolean = false,
-    /** Supports OpenAI-style client tool calling. */
+    /**
+     * Groq server-side tools this model supports: "browser_search" (live web,
+     * powered by Exa) and "code_interpreter" (sandboxed Python, powered by E2B).
+     * Sent as `{"type": "..."}` entries in the `tools` array.
+     */
+    val builtInTools: List<String> = emptyList(),
+    /** Supports OpenAI-style client-side function calling. */
     val clientTools: Boolean = true,
-    val contextTokens: Int = 8192
-)
+    val contextTokens: Int = 8192,
+    val reasoning: Boolean = false,
+    val free: Boolean = false,
+    val preview: Boolean = false
+) {
+    val serverSideTools: Boolean get() = builtInTools.isNotEmpty()
+}
 
 object ModelCatalog {
 
-    val GROQ_COMPOUND = ModelSpec(
-        id = "groq/compound",
+    /* ----------------------------- Groq ----------------------------- */
+
+    /**
+     * Flagship open-weight model on Groq with built-in browser search and a
+     * Python sandbox — the direct successor to the retired `groq/compound`.
+     */
+    val GPT_OSS_120B = ModelSpec(
+        id = "openai/gpt-oss-120b",
         provider = Provider.GROQ,
-        label = "Groq Compound (agentic)",
-        description = "Server-side web search + code execution built in. Best default for research tasks.",
-        serverSideTools = true,
-        clientTools = true,
-        contextTokens = 131072
+        label = "GPT-OSS 120B (agentic)",
+        description = "Groq flagship. Built-in browser search + Python sandbox, strong reasoning. Best default.",
+        builtInTools = listOf("browser_search", "code_interpreter"),
+        contextTokens = 131072,
+        reasoning = true
     )
 
-    val GROQ_COMPOUND_MINI = ModelSpec(
-        id = "groq/compound-mini",
+    val GPT_OSS_20B = ModelSpec(
+        id = "openai/gpt-oss-20b",
         provider = Provider.GROQ,
-        label = "Groq Compound Mini",
-        description = "Lighter, faster agentic variant – single tool call per turn.",
-        serverSideTools = true,
-        contextTokens = 131072
+        label = "GPT-OSS 20B (fast agentic)",
+        description = "~1000 tok/s. Same built-in search + code tools, lighter on rate limits.",
+        builtInTools = listOf("browser_search", "code_interpreter"),
+        contextTokens = 131072,
+        reasoning = true
     )
 
-    val GROQ_LLAMA_70B = ModelSpec(
-        id = "llama-3.3-70b-versatile",
+    val QWEN_38_27B = ModelSpec(
+        id = "qwen/qwen3.8-27b",
         provider = Provider.GROQ,
-        label = "Llama 3.3 70B Versatile",
-        description = "Strong general chat model with client-side tool calling.",
-        contextTokens = 131072
+        label = "Qwen 3.8 27B",
+        description = "Multilingual (excellent Arabic), tool use, JSON mode. Preview model.",
+        contextTokens = 131072,
+        reasoning = true,
+        preview = true
     )
 
-    val GROQ_LLAMA_8B = ModelSpec(
-        id = "llama-3.1-8b-instant",
+    val GPT_OSS_SAFEGUARD_20B = ModelSpec(
+        id = "openai/gpt-oss-safeguard-20b",
         provider = Provider.GROQ,
-        label = "Llama 3.1 8B Instant",
-        description = "Very fast, cheap on rate limits. Good for short chats.",
-        contextTokens = 131072
+        label = "GPT-OSS Safeguard 20B",
+        description = "Safety-tuned 20B with browser search. Preview model.",
+        builtInTools = listOf("browser_search"),
+        contextTokens = 131072,
+        preview = true
     )
 
-    val GROQ_GEMMA = ModelSpec(
-        id = "gemma2-9b-it",
-        provider = Provider.GROQ,
-        label = "Gemma 2 9B IT",
-        description = "Compact Google model, fast replies.",
-        clientTools = false,
-        contextTokens = 8192
+    /** Speech-to-text model used by the microphone button (not a chat model). */
+    const val WHISPER_TURBO = "whisper-large-v3-turbo"
+
+    /* -------------------------- OpenRouter -------------------------- */
+
+    val OR_GPT_OSS_120B_FREE = ModelSpec(
+        id = "openai/gpt-oss-120b:free",
+        provider = Provider.OPENROUTER,
+        label = "OpenRouter · GPT-OSS 120B (free)",
+        description = "Free mirror of the flagship open-weight model. Reliable tool use.",
+        contextTokens = 131072,
+        free = true
     )
 
     val OR_LLAMA_FREE = ModelSpec(
         id = "meta-llama/llama-3.3-70b-instruct:free",
         provider = Provider.OPENROUTER,
         label = "OpenRouter · Llama 3.3 70B (free)",
-        description = "Free fallback when Groq is rate limited.",
-        contextTokens = 65536
+        description = "Long-standing free multilingual chat model.",
+        contextTokens = 131072,
+        free = true
     )
 
-    val OR_DEEPSEEK_FREE = ModelSpec(
-        id = "deepseek/deepseek-chat-v3.1:free",
+    val OR_QWEN_NEXT_FREE = ModelSpec(
+        id = "qwen/qwen3-next-80b-a3b-instruct:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · DeepSeek V3.1 (free)",
-        description = "Free reasoning-capable fallback.",
-        contextTokens = 65536
+        label = "OpenRouter · Qwen3 Next 80B (free)",
+        description = "Free, strong at long multi-turn tool workflows and Arabic.",
+        contextTokens = 262144,
+        free = true
     )
 
-    val OR_QWEN_FREE = ModelSpec(
-        id = "qwen/qwen-2.5-72b-instruct:free",
+    val OR_GPT_OSS_20B_FREE = ModelSpec(
+        id = "openai/gpt-oss-20b:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Qwen 2.5 72B (free)",
-        description = "Free multilingual fallback (strong Arabic).",
-        contextTokens = 32768
+        label = "OpenRouter · GPT-OSS 20B (free)",
+        description = "Lightweight free fallback, good at code.",
+        contextTokens = 131072,
+        free = true
     )
 
-    val OR_MISTRAL_FREE = ModelSpec(
-        id = "mistralai/mistral-small-3.2-24b-instruct:free",
+    val OR_AUTO_FREE = ModelSpec(
+        id = "openrouter/free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Mistral Small 3.2 (free)",
-        description = "Free lightweight fallback.",
-        contextTokens = 32768
+        label = "OpenRouter · Auto (free)",
+        description = "Lets OpenRouter pick whichever free model is currently available.",
+        contextTokens = 65536,
+        free = true
     )
 
-    val groq: List<ModelSpec> = listOf(
-        GROQ_COMPOUND, GROQ_COMPOUND_MINI, GROQ_LLAMA_70B, GROQ_LLAMA_8B, GROQ_GEMMA
-    )
+    val groq: List<ModelSpec> = listOf(GPT_OSS_120B, GPT_OSS_20B, QWEN_38_27B, GPT_OSS_SAFEGUARD_20B)
 
     val openRouter: List<ModelSpec> = listOf(
-        OR_LLAMA_FREE, OR_DEEPSEEK_FREE, OR_QWEN_FREE, OR_MISTRAL_FREE
+        OR_GPT_OSS_120B_FREE, OR_LLAMA_FREE, OR_QWEN_NEXT_FREE, OR_GPT_OSS_20B_FREE, OR_AUTO_FREE
     )
 
     val all: List<ModelSpec> = groq + openRouter
 
-    fun byId(id: String): ModelSpec = all.firstOrNull { it.id == id } ?: GROQ_COMPOUND
+    val DEFAULT_PRIMARY = GPT_OSS_120B.id
+    val DEFAULT_FALLBACK = OR_GPT_OSS_120B_FREE.id
+
+    /**
+     * Model IDs Groq has decommissioned, mapped to their live replacement.
+     * Stored settings and old conversations are migrated transparently so the
+     * app never fires a request that is guaranteed to 400.
+     */
+    val RETIRED: Map<String, String> = mapOf(
+        "groq/compound" to GPT_OSS_120B.id,              // shut down 2026-09-21
+        "groq/compound-mini" to GPT_OSS_20B.id,          // shut down 2026-09-21
+        "llama-3.3-70b-versatile" to GPT_OSS_120B.id,    // shut down 2026-08-16
+        "llama-3.1-8b-instant" to GPT_OSS_20B.id,        // shut down 2026-08-16
+        "qwen/qwen3-32b" to GPT_OSS_120B.id,             // shut down 2026-07-17
+        "qwen/qwen3.6-27b" to QWEN_38_27B.id,            // shut down 2026-09-14
+        "meta-llama/llama-4-scout-17b-16e-instruct" to GPT_OSS_120B.id,
+        "moonshotai/kimi-k2-instruct-0905" to GPT_OSS_120B.id,
+        "gemma2-9b-it" to GPT_OSS_20B.id,
+        "llama3-70b-8192" to GPT_OSS_120B.id,
+        "llama3-8b-8192" to GPT_OSS_20B.id,
+        "deepseek/deepseek-chat-v3.1:free" to OR_GPT_OSS_120B_FREE.id,
+        "qwen/qwen-2.5-72b-instruct:free" to OR_QWEN_NEXT_FREE.id,
+        "mistralai/mistral-small-3.2-24b-instruct:free" to OR_GPT_OSS_20B_FREE.id
+    )
+
+    fun migrate(id: String): String = RETIRED[id] ?: id
+
+    /** Models discovered at runtime from the provider /models endpoints. */
+    @Volatile
+    var discovered: List<ModelSpec> = emptyList()
+
+    fun byId(id: String): ModelSpec {
+        val migrated = migrate(id)
+        return all.firstOrNull { it.id == migrated }
+            ?: discovered.firstOrNull { it.id == migrated }
+            ?: GPT_OSS_120B
+    }
+
+    fun known(): List<ModelSpec> {
+        val ids = all.map { it.id }.toSet()
+        return all + discovered.filterNot { it.id in ids }
+    }
 
     /** Ordered fallback chain used when the primary model fails or is rate limited. */
     fun fallbackChain(primaryId: String, fallbackId: String): List<ModelSpec> {
@@ -113,10 +189,13 @@ object ModelCatalog {
         val fallback = byId(fallbackId)
         val chain = LinkedHashSet<ModelSpec>()
         chain += primary
-        if (primary.provider == Provider.GROQ && primary.id != GROQ_LLAMA_70B.id) chain += GROQ_LLAMA_70B
+        if (primary.provider == Provider.GROQ && primary.id != GPT_OSS_20B.id) chain += GPT_OSS_20B
         chain += fallback
-        chain += OR_DEEPSEEK_FREE
-        chain += OR_QWEN_FREE
+        chain += OR_LLAMA_FREE
+        chain += OR_AUTO_FREE
         return chain.toList()
     }
+
+    /** Small, cheap model used for titles, summaries and self-verification. */
+    fun utility(): List<ModelSpec> = listOf(GPT_OSS_20B, OR_GPT_OSS_20B_FREE, OR_LLAMA_FREE)
 }

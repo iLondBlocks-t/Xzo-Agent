@@ -43,6 +43,11 @@ class MainActivity : ComponentActivity() {
             bridge.deliver(pendingRequestId, uri)
         }
 
+    private val micPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) vm.onMicTap(true)
+        }
+
     private val openDocLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             bridge.deliver(pendingRequestId, uri)
@@ -68,6 +73,12 @@ class MainActivity : ComponentActivity() {
                         openDocLauncher.launch(req.mimes)
                     }.onFailure { bridge.deliver(req.id, null) }
                 }
+            }
+        }
+
+        lifecycleScope.launch {
+            vm.micPermissionRequests.collectLatest {
+                micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
             }
         }
 
@@ -111,7 +122,8 @@ class MainActivity : ComponentActivity() {
                             vm = vm,
                             onOpenDrawer = { scope.launch { drawerState.open() } },
                             onOpenSettings = { showSettings = true },
-                            onOpenModels = { showModels = true }
+                            onOpenModels = { showModels = true },
+                            onMic = { vm.onMicTap(hasMicPermission()) }
                         )
                     }
 
@@ -127,6 +139,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         readSharedText(intent)?.let { vm.onInputChange(it) }
     }
+
+    private fun hasMicPermission(): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
     private fun readSharedText(intent: Intent): String? = when (intent.action) {
         Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)

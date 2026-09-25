@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.xzo.agent.data.remote.ModelCatalog
 import com.xzo.agent.data.remote.ModelSpec
 import com.xzo.agent.ui.ChatUiState
 import com.xzo.agent.ui.ChatViewModel
@@ -62,12 +61,19 @@ fun ModelSheet(state: ChatUiState, vm: ChatViewModel, onDismiss: () -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
 
+            androidx.compose.material3.TextButton(onClick = { vm.refreshModels() }) {
+                Text(if (state.refreshingModels) "Refreshing…" else "Refresh live model list")
+            }
+
+            val groqModels = state.models.filter { it.provider == com.xzo.agent.data.remote.Provider.GROQ }
+            val orModels = state.models.filter { it.provider == com.xzo.agent.data.remote.Provider.OPENROUTER }
+
             Text("Groq", style = MaterialTheme.typography.labelLarge)
-            ModelCatalog.groq.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
+            groqModels.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
 
             Spacer(Modifier.height(10.dp))
-            Text("OpenRouter (free)", style = MaterialTheme.typography.labelLarge)
-            ModelCatalog.openRouter.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
+            Text("OpenRouter", style = MaterialTheme.typography.labelLarge)
+            orModels.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
         }
     }
 }

@@ -20,8 +20,8 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "xz
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 data class AppSettings(
-    val primaryModel: String = ModelCatalog.GROQ_COMPOUND.id,
-    val fallbackModel: String = ModelCatalog.OR_LLAMA_FREE.id,
+    val primaryModel: String = ModelCatalog.DEFAULT_PRIMARY,
+    val fallbackModel: String = ModelCatalog.DEFAULT_FALLBACK,
     val temperature: Double = 0.6,
     val maxTokens: Int = 2048,
     val maxIterations: Int = 6,
@@ -38,7 +38,11 @@ data class AppSettings(
     val groqKeyOverride: String = "",
     val openRouterKeyOverride: String = "",
     val historyWindow: Int = 24,
-    val animatedBackground: Boolean = true
+    val animatedBackground: Boolean = true,
+    val useBuiltInTools: Boolean = true,
+    val reasoningEffort: String = "medium",
+    val speakReplies: Boolean = false,
+    val voiceLanguage: String = ""
 )
 
 class SettingsRepository(private val context: Context) {
@@ -63,12 +67,16 @@ class SettingsRepository(private val context: Context) {
         val orKey = stringPreferencesKey("openrouter_key_override")
         val historyWindow = intPreferencesKey("history_window")
         val animatedBackground = booleanPreferencesKey("animated_bg")
+        val builtInTools = booleanPreferencesKey("built_in_tools")
+        val reasoningEffort = stringPreferencesKey("reasoning_effort")
+        val speakReplies = booleanPreferencesKey("speak_replies")
+        val voiceLanguage = stringPreferencesKey("voice_language")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
         AppSettings(
-            primaryModel = p[Keys.primaryModel] ?: ModelCatalog.GROQ_COMPOUND.id,
-            fallbackModel = p[Keys.fallbackModel] ?: ModelCatalog.OR_LLAMA_FREE.id,
+            primaryModel = ModelCatalog.migrate(p[Keys.primaryModel] ?: ModelCatalog.DEFAULT_PRIMARY),
+            fallbackModel = ModelCatalog.migrate(p[Keys.fallbackModel] ?: ModelCatalog.DEFAULT_FALLBACK),
             temperature = p[Keys.temperature] ?: 0.6,
             maxTokens = p[Keys.maxTokens] ?: 2048,
             maxIterations = p[Keys.maxIterations] ?: 6,
@@ -85,7 +93,11 @@ class SettingsRepository(private val context: Context) {
             groqKeyOverride = p[Keys.groqKey].orEmpty(),
             openRouterKeyOverride = p[Keys.orKey].orEmpty(),
             historyWindow = p[Keys.historyWindow] ?: 24,
-            animatedBackground = p[Keys.animatedBackground] ?: true
+            animatedBackground = p[Keys.animatedBackground] ?: true,
+            useBuiltInTools = p[Keys.builtInTools] ?: true,
+            reasoningEffort = p[Keys.reasoningEffort] ?: "medium",
+            speakReplies = p[Keys.speakReplies] ?: false,
+            voiceLanguage = p[Keys.voiceLanguage].orEmpty()
         )
     }
 
@@ -105,6 +117,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setThemeMode(v: ThemeMode) = edit { it[Keys.themeMode] = v.name }
     suspend fun setHistoryWindow(v: Int) = edit { it[Keys.historyWindow] = v }
     suspend fun setAnimatedBackground(v: Boolean) = edit { it[Keys.animatedBackground] = v }
+    suspend fun setBuiltInTools(v: Boolean) = edit { it[Keys.builtInTools] = v }
+    suspend fun setReasoningEffort(v: String) = edit { it[Keys.reasoningEffort] = v }
+    suspend fun setSpeakReplies(v: Boolean) = edit { it[Keys.speakReplies] = v }
+    suspend fun setVoiceLanguage(v: String) = edit { it[Keys.voiceLanguage] = v.trim() }
     suspend fun setGroqKey(v: String) = edit { it[Keys.groqKey] = v.trim() }
     suspend fun setOpenRouterKey(v: String) = edit { it[Keys.orKey] = v.trim() }
 
