@@ -33,10 +33,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build release APK (arm32 only)
+      - name: Run unit tests
         run: |
           set -o pipefail
-          ./gradlew assembleRelease --stacktrace 2>&1 | tee /tmp/build.log
+          ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee /tmp/build.log
+
+      - name: Build APKs (arm32 only)
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease assembleDebug --stacktrace 2>&1 | tee -a /tmp/build.log
 
       - name: Report build log on failure
         if: failure()
@@ -73,9 +78,18 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
 
-      - name: Upload APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-arm32
           path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # The debug APK is signed with the standard Android debug key, so it can be
+      # installed on a phone immediately — useful before you create a keystore.
+      - name: Upload debug APK artifact (installable without a keystore)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-arm32
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

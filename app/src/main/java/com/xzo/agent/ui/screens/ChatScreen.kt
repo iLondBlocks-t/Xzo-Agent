@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,6 +76,7 @@ fun ChatScreen(
     onOpenLibrary: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val listState = rememberLazyListState()
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -164,7 +166,12 @@ fun ChatScreen(
                     InputBar(
                         value = state.input,
                         onValueChange = vm::onInputChange,
-                        onSend = { vm.send() },
+                        onSend = {
+                            if (state.settings.haptics) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            vm.send()
+                        },
                         onStop = vm::stop,
                         onAttach = { vm.attachFile() },
                         busy = state.busy,
@@ -187,6 +194,11 @@ fun ChatScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val (groqOk, orOk) = vm.keyStatus()
+                if (!groqOk && !orOk) {
+                    item { SetupNotice(onOpenSettings = onOpenSettings) }
+                }
+
                 if (state.messages.isEmpty() && !state.busy) {
                     item { EmptyState(onSuggestion = { vm.onInputChange(it) }) }
                 }
@@ -263,6 +275,27 @@ private fun LiveTurn(state: ChatUiState) {
             ) {
                 ThinkingDots(label = state.status ?: "Thinking…")
             }
+        }
+    }
+}
+
+@Composable
+private fun SetupNotice(onOpenSettings: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.fillMaxWidth().clickable { onOpenSettings() }
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("No API key configured", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.size(6.dp))
+            Text(
+                "Add GROQ_API_KEY and OPENROUTER_API_KEY as GitHub Actions secrets and rebuild, " +
+                    "or tap here to paste a key into Settings. Both providers have a free tier.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

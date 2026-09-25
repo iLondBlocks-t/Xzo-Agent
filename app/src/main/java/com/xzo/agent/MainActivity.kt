@@ -100,12 +100,21 @@ class MainActivity : ComponentActivity() {
                 if (!shared.isNullOrBlank()) vm.onInputChange(shared)
             }
 
+            LaunchedEffect(Unit) {
+                when (intent?.action) {
+                    "com.xzo.agent.NEW_CHAT" -> vm.newChat()
+                    else -> Unit
+                }
+            }
+
             XzoTheme(themeMode = state.settings.themeMode) {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 var showSettings by remember { mutableStateOf(false) }
                 var showModels by remember { mutableStateOf(false) }
-                var showLibrary by remember { mutableStateOf(false) }
+                var showLibrary by remember {
+                    mutableStateOf(intent?.action == "com.xzo.agent.OPEN_LIBRARY")
+                }
                 var showWorkspace by remember { mutableStateOf(false) }
 
                 if (showSettings) {

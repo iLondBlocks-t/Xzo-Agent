@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_chat"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/new_chat"
+        android:shortcutLongLabel="@string/new_chat">
+        <intent
+            android:action="com.xzo.agent.NEW_CHAT"
+            android:targetPackage="com.xzo.agent"
+            android:targetClass="com.xzo.agent.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="library"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/shortcut_library"
+        android:shortcutLongLabel="@string/shortcut_library">
+        <intent
+            android:action="com.xzo.agent.OPEN_LIBRARY"
+            android:targetPackage="com.xzo.agent"
+            android:targetClass="com.xzo.agent.MainActivity" />
+    </shortcut>
+</shortcuts>

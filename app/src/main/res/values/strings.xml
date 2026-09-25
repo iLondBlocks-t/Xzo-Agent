@@ -10,4 +10,5 @@
     <string name="chats">Chats</string>
     <string name="new_chat">New chat</string>
     <string name="free_notice">Free &amp; unlimited: this app never charges you or caps you. Real limits come only from Groq / OpenRouter free tiers.</string>
+    <string name="shortcut_library">Prompt library</string>
 </resources>
