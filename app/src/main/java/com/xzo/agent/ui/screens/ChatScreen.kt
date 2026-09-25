@@ -271,7 +271,7 @@ fun ChatScreen(
                 }
 
                 if (!state.busy && state.followUps.isNotEmpty()) {
-                    item { FollowUpRow(state.followUps, onPick = vm::useFollowUp) }
+                    item { FollowUpRow(state.followUps, t.next, onPick = vm::useFollowUp) }
                 }
             }
         }
