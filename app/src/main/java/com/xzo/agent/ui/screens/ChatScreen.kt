@@ -71,7 +71,8 @@ fun ChatScreen(
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModels: () -> Unit,
-    onMic: () -> Unit
+    onMic: () -> Unit,
+    onOpenLibrary: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -117,6 +118,9 @@ fun ChatScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = onOpenLibrary) {
+                            Icon(Icons.Rounded.AutoAwesome, "Prompt library")
+                        }
                         IconButton(onClick = onOpenModels) { Icon(Icons.Rounded.Tune, "Model") }
                         Box {
                             IconButton(onClick = { menuOpen = true }) { Icon(Icons.Rounded.MoreVert, "More") }
@@ -130,6 +134,9 @@ fun ChatScreen(
                                 DropdownMenuItem(
                                     text = { Text("Clear messages") },
                                     onClick = { menuOpen = false; vm.clearCurrent() })
+                                DropdownMenuItem(
+                                    text = { Text("Prompt library") },
+                                    onClick = { menuOpen = false; onOpenLibrary() })
                                 DropdownMenuItem(
                                     text = { Text("Settings") },
                                     onClick = { menuOpen = false; onOpenSettings() })

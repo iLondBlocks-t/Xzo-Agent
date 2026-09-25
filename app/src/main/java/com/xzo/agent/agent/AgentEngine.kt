@@ -92,7 +92,10 @@ class AgentEngine(
         DeviceInfoTool,
         RememberTool,
         RecallTool,
-        SummarizeTool
+        SummarizeTool,
+        com.xzo.agent.agent.tools.ListFolderTool,
+        com.xzo.agent.agent.tools.ReadFolderFileTool,
+        com.xzo.agent.agent.tools.TranslateTool
     )
 
     private fun toolsFor(input: AgentInput): List<AgentTool> {

@@ -406,5 +406,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun stats() = repo.stats()
 
+    suspend fun listMemories(): List<Pair<String, String>> = container.memory.all()
+
+    fun forgetMemory(key: String) = viewModelScope.launch { container.memory.forget(key) }
+
+    fun deleteArtifact(id: Long) = viewModelScope.launch { repo.deleteArtifact(id) }
+
     fun traceOf(m: MessageEntity): AgentTraceLog = AgentTraceLog.decode(m.traceJson)
 }

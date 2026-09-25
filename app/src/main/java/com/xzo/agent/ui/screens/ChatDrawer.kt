@@ -44,7 +44,9 @@ fun ChatDrawer(
     state: ChatUiState,
     vm: ChatViewModel,
     onSelect: (Long) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenLibrary: () -> Unit = {},
+    onOpenWorkspace: () -> Unit = {}
 ) {
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -71,6 +73,13 @@ fun ChatDrawer(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DrawerPill("Prompt library", Modifier.weight(1f), onOpenLibrary)
+                DrawerPill("Workspace", Modifier.weight(1f), onOpenWorkspace)
+            }
 
             Spacer(Modifier.height(10.dp))
 
@@ -152,5 +161,22 @@ fun ChatDrawer(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DrawerPill(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        )
     }
 }

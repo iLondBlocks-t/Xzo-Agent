@@ -38,6 +38,8 @@ class FileBridge(private val appContext: Context) {
             override fun equals(other: Any?) = other is Open && other.id == id
             override fun hashCode() = id.hashCode()
         }
+
+        data class OpenTree(override val id: Long) : Request
     }
 
     val requests = MutableSharedFlow<Request>(extraBufferCapacity = 8)
@@ -110,6 +112,50 @@ class FileBridge(private val appContext: Context) {
             LoadedFile(uri, name, mime, text)
         }.getOrNull()
     }
+
+    /* ------------------------- folder access ------------------------- */
+
+    data class FolderEntry(val name: String, val mime: String, val size: Long, val uri: Uri)
+
+    @Volatile
+    private var grantedTree: Uri? = null
+
+    /** Ask for a folder (ACTION_OPEN_DOCUMENT_TREE) and list its files. */
+    suspend fun openFolder(limit: Int = 60): List<FolderEntry>? {
+        val id = ++counter
+        val uri = await(Request.OpenTree(id)) ?: return null
+        grantedTree = uri
+        runCatching {
+            appContext.contentResolver.takePersistableUriPermission(
+                uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        return listFolder(limit)
+    }
+
+    suspend fun listFolder(limit: Int = 60): List<FolderEntry> = withContext(Dispatchers.IO) {
+        val tree = grantedTree ?: return@withContext emptyList()
+        val doc = androidx.documentfile.provider.DocumentFile.fromTreeUri(appContext, tree)
+            ?: return@withContext emptyList()
+        doc.listFiles()
+            .filter { it.isFile }
+            .take(limit)
+            .map {
+                FolderEntry(
+                    name = it.name ?: "unnamed",
+                    mime = it.type ?: "application/octet-stream",
+                    size = it.length(),
+                    uri = it.uri
+                )
+            }
+    }
+
+    suspend fun readFromFolder(name: String, maxChars: Int): LoadedFile? {
+        val entry = listFolder(400).firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return null
+        return readUri(entry.uri, maxChars)
+    }
+
+    fun hasFolder(): Boolean = grantedTree != null
 
     fun displayName(uri: Uri): String? = runCatching {
         appContext.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)

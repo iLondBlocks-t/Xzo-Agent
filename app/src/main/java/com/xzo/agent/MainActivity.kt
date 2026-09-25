@@ -53,6 +53,11 @@ class MainActivity : ComponentActivity() {
             bridge.deliver(pendingRequestId, uri)
         }
 
+    private val openTreeLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+            bridge.deliver(pendingRequestId, uri)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -71,6 +76,10 @@ class MainActivity : ComponentActivity() {
 
                     is FileBridge.Request.Open -> runCatching {
                         openDocLauncher.launch(req.mimes)
+                    }.onFailure { bridge.deliver(req.id, null) }
+
+                    is FileBridge.Request.OpenTree -> runCatching {
+                        openTreeLauncher.launch(null)
                     }.onFailure { bridge.deliver(req.id, null) }
                 }
             }
@@ -96,9 +105,24 @@ class MainActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 var showSettings by remember { mutableStateOf(false) }
                 var showModels by remember { mutableStateOf(false) }
+                var showLibrary by remember { mutableStateOf(false) }
+                var showWorkspace by remember { mutableStateOf(false) }
 
                 if (showSettings) {
                     SettingsScreen(state = state, vm = vm, onBack = { showSettings = false })
+                } else if (showLibrary) {
+                    com.xzo.agent.ui.screens.LibraryScreen(
+                        animatedBackground = state.settings.animatedBackground,
+                        onPick = { prompt ->
+                            vm.onInputChange(prompt)
+                            showLibrary = false
+                        },
+                        onBack = { showLibrary = false }
+                    )
+                } else if (showWorkspace) {
+                    com.xzo.agent.ui.screens.WorkspaceScreen(
+                        state = state, vm = vm, onBack = { showWorkspace = false }
+                    )
                 } else {
                     ModalNavigationDrawer(
                         drawerState = drawerState,
@@ -113,6 +137,14 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = {
                                     showSettings = true
                                     scope.launch { drawerState.close() }
+                                },
+                                onOpenLibrary = {
+                                    showLibrary = true
+                                    scope.launch { drawerState.close() }
+                                },
+                                onOpenWorkspace = {
+                                    showWorkspace = true
+                                    scope.launch { drawerState.close() }
                                 }
                             )
                         }
@@ -123,7 +155,8 @@ class MainActivity : ComponentActivity() {
                             onOpenDrawer = { scope.launch { drawerState.open() } },
                             onOpenSettings = { showSettings = true },
                             onOpenModels = { showModels = true },
-                            onMic = { vm.onMicTap(hasMicPermission()) }
+                            onMic = { vm.onMicTap(hasMicPermission()) },
+                            onOpenLibrary = { showLibrary = true }
                         )
                     }
 
