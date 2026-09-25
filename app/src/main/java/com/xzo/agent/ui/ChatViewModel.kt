@@ -54,7 +54,8 @@ data class ChatUiState(
     val rateLimit: com.xzo.agent.data.remote.RateSnapshot? = null,
     val keyChecks: Map<com.xzo.agent.data.remote.Provider, com.xzo.agent.data.remote.LlmClient.KeyCheck> = emptyMap(),
     val checkingKey: com.xzo.agent.data.remote.Provider? = null,
-    val needsSetup: Boolean = false
+    val needsSetup: Boolean = false,
+    val followUps: List<String> = emptyList()
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -168,6 +169,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /* ------------------------------ composing ------------------------------ */
 
     fun onInputChange(v: String) = _state.update { it.copy(input = v) }
+
+    fun useFollowUp(text: String) {
+        _state.update { it.copy(followUps = emptyList()) }
+        send(text)
+    }
 
     fun setMode(mode: com.xzo.agent.agent.AgentMode) = _state.update { it.copy(mode = mode) }
 
@@ -290,7 +296,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     verifying = false,
                     plan = null,
                     banner = null,
-                    lastError = null
+                    lastError = null,
+                    followUps = emptyList()
                 )
             }
 
@@ -386,6 +393,21 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             if (_state.value.settings.autoTitle) repo.maybeAutoTitle(cid, prompt)
+
+            // After the answer is on screen: learn durable facts and propose next steps.
+            if (outcome != null && outcome.answer.isNotBlank() && outcome.error == null) {
+                launch {
+                    runCatching {
+                        com.xzo.agent.agent.MemoryHarvester.harvest(prompt, container.llm, container.memory)
+                    }
+                }
+                launch {
+                    val ups = runCatching {
+                        com.xzo.agent.agent.FollowUps.suggest(prompt, outcome.answer, container.llm)
+                    }.getOrDefault(emptyList())
+                    _state.update { it.copy(followUps = ups) }
+                }
+            }
             if (_state.value.settings.speakReplies && outcome != null && outcome.answer.isNotBlank()) {
                 container.speaker.speak(outcome.answer)
             }

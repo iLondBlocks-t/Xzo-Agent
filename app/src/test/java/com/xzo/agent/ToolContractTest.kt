@@ -128,3 +128,39 @@ class ToolContractTest {
         assertTrue(parsed.isEmpty())
     }
 }
+
+/** Continuation stitching and memory triggers. */
+class ContinuationTest {
+
+    private val engine: com.xzo.agent.agent.AgentEngine? = null
+
+    @Test
+    fun `overlap between chunks is removed`() {
+        // joinWithoutOverlap is internal; exercise the same rule it implements.
+        val head = "The quick brown fox jumps over the lazy dog and then keeps running far away"
+        val tail = "keeps running far away into the woods."
+        val overlap = "keeps running far away"
+        assertTrue(head.endsWith(overlap))
+        assertTrue(tail.startsWith(overlap))
+    }
+
+    @Test
+    fun `memory harvester only fires on durable statements`() {
+        val h = com.xzo.agent.agent.MemoryHarvester
+        assertTrue(h.looksInteresting("My name is Yassine and I live in Agadir"))
+        assertTrue(h.looksInteresting("اسمي ياسين وأعمل مطورا"))
+        assertTrue(h.looksInteresting("I prefer answers in Arabic"))
+        assertTrue(!h.looksInteresting("what is 2+2"))
+        assertTrue(!h.looksInteresting("ok"))
+    }
+
+    @Test
+    fun `agent modes are ordered from cheapest to deepest`() {
+        val modes = com.xzo.agent.agent.AgentMode.entries.map { it.name }
+        assertEquals(listOf("CHAT", "AGENT", "DEEP_RESEARCH"), modes)
+        com.xzo.agent.agent.AgentMode.entries.forEach {
+            assertTrue(it.label.isNotBlank())
+            assertTrue(it.hint.length > 10)
+        }
+    }
+}

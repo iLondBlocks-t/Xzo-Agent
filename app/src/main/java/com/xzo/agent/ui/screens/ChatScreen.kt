@@ -268,6 +268,41 @@ fun ChatScreen(
                 if (state.busy) {
                     item { LiveTurn(state) }
                 }
+
+                if (!state.busy && state.followUps.isNotEmpty()) {
+                    item { FollowUpRow(state.followUps, onPick = vm::useFollowUp) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowUpRow(items: List<String>, onPick: (String) -> Unit) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+    ) {
+        Text(
+            "Next",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+        )
+        items.forEach { q ->
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.clickable { onPick(q) }
+            ) {
+                Text(
+                    q,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
             }
         }
     }

@@ -249,7 +249,20 @@ class AgentEngine(
 
             if (turn.toolCalls.isEmpty()) {
                 finalText = turn.content.trim()
-                produced += WireMessage("assistant", turn.content)
+
+                // The reply was cut off mid-sentence because it hit the token ceiling —
+                // transparently ask for the remainder and stitch it on, so the user never
+                // sees a truncated answer.
+                if (turn.finishReason == "length" && finalText.isNotBlank()) {
+                    finalText = continueTruncated(
+                        input = input,
+                        convo = convo,
+                        soFar = finalText,
+                        onEvent = onEvent
+                    ) { usage = mergeUsage(usage, it) }
+                }
+
+                produced += WireMessage("assistant", finalText)
                 break@loop
             }
 
@@ -504,6 +517,61 @@ class AgentEngine(
             }
         }
         throw lastError ?: LlmException("All providers failed")
+    }
+
+    /**
+     * Continues an answer that stopped because of `finish_reason: length`.
+     * Up to two extra passes, each appended without repeating the overlap.
+     */
+    private suspend fun continueTruncated(
+        input: AgentInput,
+        convo: List<WireMessage>,
+        soFar: String,
+        onEvent: suspend (AgentEvent) -> Unit,
+        onUsage: (Usage?) -> Unit
+    ): String {
+        var text = soFar
+        repeat(2) { pass ->
+            onEvent(AgentEvent.Status("Continuing the answer…"))
+            val spec = ModelCatalog.byId(input.modelId)
+            val request = ChatRequest(
+                model = spec.id,
+                messages = convo + listOf(
+                    WireMessage("assistant", text.takeLast(4000)),
+                    WireMessage(
+                        "user",
+                        "Continue exactly where that stopped. Do not repeat anything, do not " +
+                            "re-introduce the topic, just carry on from the final character."
+                    )
+                ),
+                temperature = input.temperature,
+                maxTokens = input.maxTokens,
+                reasoningEffort = "low"
+            )
+            val more = runCatching {
+                llm.complete(spec, llm.adapt(spec, request, allowBuiltIns = false))
+            }.getOrNull() ?: return text
+
+            onUsage(more.usage)
+            val addition = more.content.trim()
+            if (addition.isBlank()) return text
+            text = joinWithoutOverlap(text, addition)
+            if (more.finishReason != "length") return text
+        }
+        return text
+    }
+
+    /** Glues two chunks together, dropping any duplicated seam the model repeated. */
+    internal fun joinWithoutOverlap(head: String, tail: String): String {
+        val maxOverlap = minOf(240, head.length, tail.length)
+        for (len in maxOverlap downTo 24) {
+            if (head.regionMatches(head.length - len, tail, 0, len, ignoreCase = true)) {
+                return head + tail.substring(len)
+            }
+        }
+        val sep = if (head.endsWith("\n") || tail.startsWith("\n")) "" else
+            if (head.lastOrNull()?.isLetterOrDigit() == true) " " else ""
+        return head + sep + tail
     }
 
     /* ------------------------- self verification ------------------------- */
