@@ -46,7 +46,9 @@ data class ChatUiState(
     val voice: VoiceState = VoiceState.IDLE,
     val speakingMessageId: Long = -1,
     val models: List<com.xzo.agent.data.remote.ModelSpec> = com.xzo.agent.data.remote.ModelCatalog.known(),
-    val refreshingModels: Boolean = false
+    val refreshingModels: Boolean = false,
+    val mode: com.xzo.agent.agent.AgentMode = com.xzo.agent.agent.AgentMode.AGENT,
+    val plan: String? = null
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -140,6 +142,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onInputChange(v: String) = _state.update { it.copy(input = v) }
 
+    fun setMode(mode: com.xzo.agent.agent.AgentMode) = _state.update { it.copy(mode = mode) }
+
     fun banner(text: String?) = _state.update { it.copy(banner = text) }
 
     fun attachFile(imagesOnly: Boolean = false) = viewModelScope.launch {
@@ -211,6 +215,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     streamingText = "",
                     liveTraces = emptyList(),
                     verifying = false,
+                    plan = null,
                     banner = null
                 )
             }
@@ -245,6 +250,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 streaming = s.settings.streaming,
                 maxIterations = s.settings.maxIterations,
                 useBuiltInTools = s.settings.useBuiltInTools,
+                mode = s.mode,
                 reasoningEffort = s.settings.reasoningEffort,
                 enabledTools = container.engine.allTools
                     .map { it.name }
@@ -309,7 +315,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             _state.update {
-                it.copy(busy = false, status = null, streamingText = "", verifying = false, liveTraces = emptyList())
+                it.copy(
+                    busy = false, status = null, streamingText = "",
+                    verifying = false, liveTraces = emptyList(), plan = null
+                )
             }
         }
     }
@@ -320,7 +329,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             is AgentEvent.Delta -> _state.update {
                 it.copy(streamingText = it.streamingText + event.text, status = null)
             }
-            is AgentEvent.Plan -> _state.update { it.copy(status = event.text) }
+            is AgentEvent.Plan -> _state.update { it.copy(plan = event.text) }
             is AgentEvent.ToolStart -> _state.update {
                 it.copy(status = "Using ${event.tool}…")
             }

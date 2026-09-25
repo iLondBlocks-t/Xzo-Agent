@@ -25,6 +25,7 @@ import com.xzo.agent.data.remote.WebClient
 import com.xzo.agent.data.remote.WireJson
 import com.xzo.agent.data.remote.WireMessage
 import com.xzo.agent.data.remote.multimodal
+import com.xzo.agent.data.remote.text
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
@@ -45,6 +46,12 @@ sealed interface AgentEvent {
     data class Artifact(val name: String, val uri: String) : AgentEvent
 }
 
+enum class AgentMode(val label: String, val hint: String) {
+    CHAT("Chat", "Fast, no tools — plain conversation"),
+    AGENT("Agent", "Full tool loop: search, code, files, self-verify"),
+    DEEP_RESEARCH("Deep Research", "Plans, investigates in parallel, writes and critiques a report")
+}
+
 data class AgentInput(
     val userText: String,
     val history: List<WireMessage>,
@@ -60,7 +67,8 @@ data class AgentInput(
     val selfVerify: Boolean = true,
     val streaming: Boolean = true,
     val maxIterations: Int = 6,
-    val enabledTools: Set<String> = emptySet()
+    val enabledTools: Set<String> = emptySet(),
+    val mode: AgentMode = AgentMode.AGENT
 )
 
 data class AgentOutcome(
@@ -97,16 +105,20 @@ class AgentEngine(
         com.xzo.agent.agent.tools.ListFolderTool,
         com.xzo.agent.agent.tools.ReadFolderFileTool,
         com.xzo.agent.agent.tools.TranslateTool,
-        com.xzo.agent.agent.tools.AnalyzeImageTool
+        com.xzo.agent.agent.tools.AnalyzeImageTool,
+        com.xzo.agent.agent.tools.DelegateTool
     )
 
+    private val deepResearch by lazy { DeepResearch(llm) }
+
     private fun toolsFor(input: AgentInput): List<AgentTool> {
-        if (!input.toolsEnabled) return emptyList()
+        if (!input.toolsEnabled || input.mode == AgentMode.CHAT) return emptyList()
         if (input.enabledTools.isEmpty()) return allTools
         return allTools.filter { it.name in input.enabledTools }
     }
 
     suspend fun run(input: AgentInput, onEvent: suspend (AgentEvent) -> Unit): AgentOutcome {
+        if (input.mode == AgentMode.DEEP_RESEARCH) return runDeepResearch(input, onEvent)
         val tools = toolsFor(input)
         val toolMap = tools.associateBy { it.name }
         val primary = ModelCatalog.byId(input.modelId)
@@ -311,6 +323,76 @@ class AgentEngine(
             provider = usedProvider,
             model = usedModel,
             newWireMessages = produced
+        )
+    }
+
+    /* ------------------------- deep research ------------------------- */
+
+    private suspend fun runDeepResearch(
+        input: AgentInput,
+        onEvent: suspend (AgentEvent) -> Unit
+    ): AgentOutcome {
+        val started = System.currentTimeMillis()
+        val context = buildString {
+            input.history.takeLast(6).forEach { m ->
+                appendLine("${m.role}: ${m.text.take(700)}")
+            }
+            input.attachments.filterNot { it.isImage }.forEach { a ->
+                appendLine("--- attached ${a.name} ---")
+                appendLine(a.text.take(6000))
+            }
+        }
+
+        val report = try {
+            deepResearch.run(
+                question = input.userText,
+                conversationContext = context,
+                maxSubTasks = input.maxIterations.coerceIn(2, 6),
+                onEvent = onEvent
+            )
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            val msg = friendlyError(t)
+            return AgentOutcome(
+                answer = msg,
+                trace = AgentTraceLog(emptyList(), null, null, false, null, null, false, 0),
+                usage = null,
+                provider = Provider.GROQ,
+                model = input.modelId,
+                error = msg
+            )
+        }
+
+        val steps = report.findings.map { f ->
+            ToolTrace(
+                tool = "${f.subTask.role.emoji} ${f.subTask.role.label}",
+                argsPreview = f.subTask.task.take(160),
+                summary = if (f.ok) "${f.sources.size} sources · ${f.model}" else "failed",
+                ok = f.ok,
+                durationMs = f.durationMs,
+                fullOutput = f.content.take(6000)
+            )
+        }
+
+        val verified = report.findings.count { it.ok } >= (report.plan.size + 1) / 2
+        onEvent(AgentEvent.Verified(verified, if (report.revised) "revised after critique" else "critique passed"))
+
+        return AgentOutcome(
+            answer = report.answer,
+            trace = AgentTraceLog(
+                steps = steps,
+                plan = report.plan.joinToString("\n") { "${it.role.emoji} ${it.task}" },
+                verdict = report.critique.take(300),
+                verified = verified,
+                provider = "multi-agent",
+                model = "deep-research",
+                fallbackUsed = false,
+                iterations = report.plan.size
+            ),
+            usage = null,
+            provider = Provider.GROQ,
+            model = "deep-research (${report.plan.size} threads, ${(System.currentTimeMillis() - started) / 1000}s)"
         )
     }
 

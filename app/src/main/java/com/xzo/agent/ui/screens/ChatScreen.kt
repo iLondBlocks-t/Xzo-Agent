@@ -163,6 +163,11 @@ fun ChatScreen(
                                 .padding(horizontal = 22.dp, vertical = 4.dp)
                         )
                     }
+                    ModeSelector(
+                        mode = state.mode,
+                        enabled = !state.busy,
+                        onSelect = vm::setMode
+                    )
                     InputBar(
                         value = state.input,
                         onValueChange = vm::onInputChange,
@@ -226,8 +231,62 @@ fun ChatScreen(
 }
 
 @Composable
+private fun ModeSelector(
+    mode: com.xzo.agent.agent.AgentMode,
+    enabled: Boolean,
+    onSelect: (com.xzo.agent.agent.AgentMode) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        com.xzo.agent.agent.AgentMode.entries.forEach { m ->
+            val selected = m == mode
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant
+                ),
+                modifier = Modifier.clickable(enabled = enabled) { onSelect(m) }
+            ) {
+                Text(
+                    m.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun LiveTurn(state: ChatUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        state.plan?.let { plan ->
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp, MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Plan", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        plan,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
         state.liveTraces.forEach { t ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
