@@ -24,7 +24,8 @@ data class AgentTraceLog(
     val provider: String? = null,
     val model: String? = null,
     val fallbackUsed: Boolean = false,
-    val iterations: Int = 0
+    val iterations: Int = 0,
+    val reasoning: String? = null
 ) {
     fun encode(): String = TraceJson.encodeToString(serializer(), this)
 

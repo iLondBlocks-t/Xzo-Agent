@@ -48,7 +48,8 @@ data class ChatUiState(
     val models: List<com.xzo.agent.data.remote.ModelSpec> = com.xzo.agent.data.remote.ModelCatalog.known(),
     val refreshingModels: Boolean = false,
     val mode: com.xzo.agent.agent.AgentMode = com.xzo.agent.agent.AgentMode.AGENT,
-    val plan: String? = null
+    val plan: String? = null,
+    val lastError: String? = null
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -242,7 +243,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     liveTraces = emptyList(),
                     verifying = false,
                     plan = null,
-                    banner = null
+                    banner = null,
+                    lastError = null
                 )
             }
 
@@ -305,6 +307,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 )
             } else {
+                if (outcome.error != null) _state.update { it.copy(lastError = outcome.error) }
                 repo.addMessage(
                     MessageEntity(
                         conversationId = cid,

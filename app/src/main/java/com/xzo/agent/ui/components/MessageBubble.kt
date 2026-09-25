@@ -297,6 +297,29 @@ fun TracePanel(trace: AgentTraceLog, onOpenArtifact: (String) -> Unit) {
                 }
             }
         }
+        trace.plan?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                "Plan:\n$it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        trace.reasoning?.takeIf { it.isNotBlank() }?.let { r ->
+            var open by remember { mutableStateOf(false) }
+            Text(
+                if (open) "Model reasoning ▲" else "Model reasoning ▼",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clickable { open = !open }
+            )
+            if (open) {
+                Text(
+                    r,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                )
+            }
+        }
         trace.verdict?.takeIf { it.isNotBlank() && it != "none" }?.let {
             Text(
                 "Reviewer: $it",

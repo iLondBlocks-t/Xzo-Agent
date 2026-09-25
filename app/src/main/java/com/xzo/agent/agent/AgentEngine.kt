@@ -201,6 +201,7 @@ class AgentEngine(
         var usedModel = primary.id
         var usedProvider = primary.provider
         var iterations = 0
+        var lastReasoning: String? = null
 
         loop@ while (iterations < input.maxIterations) {
             iterations++
@@ -240,6 +241,7 @@ class AgentEngine(
 
             usedModel = turn.model
             usedProvider = turn.provider
+            turn.reasoning?.takeIf { it.isNotBlank() }?.let { lastReasoning = it }
             usage = mergeUsage(usage, turn.usage)
 
             if (turn.toolCalls.isEmpty()) {
@@ -333,7 +335,8 @@ class AgentEngine(
                 provider = usedProvider.label,
                 model = usedModel,
                 fallbackUsed = fallbackUsed,
-                iterations = iterations
+                iterations = iterations,
+                reasoning = lastReasoning?.take(4000)
             ),
             usage = usage,
             provider = usedProvider,
