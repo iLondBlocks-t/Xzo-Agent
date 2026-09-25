@@ -64,6 +64,7 @@ fun InputBar(
     onMic: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     Column(modifier = modifier.fillMaxWidth()) {
 
         if (attachments.isNotEmpty()) {
@@ -116,7 +117,7 @@ fun InputBar(
                 IconButton(onClick = onAttach, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Rounded.AttachFile,
-                        contentDescription = "Attach a file",
+                        contentDescription = t.attachFile,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -125,7 +126,7 @@ fun InputBar(
                 IconButton(onClick = onAttachImage, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Rounded.Image,
-                        contentDescription = "Attach an image",
+                        contentDescription = t.attachImage,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -134,7 +135,7 @@ fun InputBar(
                 IconButton(onClick = onCamera, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Rounded.PhotoCamera,
-                        contentDescription = "Take a photo",
+                        contentDescription = t.takePhoto,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -153,7 +154,7 @@ fun InputBar(
                         com.xzo.agent.ui.VoiceState.IDLE ->
                             Icon(
                                 Icons.Rounded.Mic,
-                                contentDescription = "Voice input",
+                                contentDescription = t.voiceInput,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -168,7 +169,7 @@ fun InputBar(
                         .heightIn(min = 44.dp, max = 168.dp),
                     placeholder = {
                         Text(
-                            "Ask Xzo anything…",
+                            t.askPlaceholder,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -214,7 +215,7 @@ fun InputBar(
                     ) {
                         Icon(
                             imageVector = if (isBusy) Icons.Rounded.Stop else Icons.Rounded.ArrowUpward,
-                            contentDescription = if (isBusy) "Stop" else "Send",
+                            contentDescription = if (isBusy) t.stop else t.send,
                             tint = if (isBusy || value.isNotBlank())
                                 MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurfaceVariant,

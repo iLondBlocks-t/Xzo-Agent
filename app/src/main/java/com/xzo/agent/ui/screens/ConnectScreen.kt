@@ -69,6 +69,7 @@ fun ConnectScreen(
     onDone: () -> Unit,
     showBack: Boolean = true
 ) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     val clipboard = LocalClipboardManager.current
     var primary by remember(state.settings.groqKeyOverride) { mutableStateOf(state.settings.groqKeyOverride) }
     var backup by remember(state.settings.openRouterKeyOverride) { mutableStateOf(state.settings.openRouterKeyOverride) }
@@ -78,7 +79,7 @@ fun ConnectScreen(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Connect Xzo") },
+                    title = { Text(t.connectTitle) },
                     navigationIcon = {
                         if (showBack) IconButton(onClick = onDone) { Icon(Icons.Rounded.ArrowBack, "Back") }
                     },
@@ -97,20 +98,16 @@ fun ConnectScreen(
             ) {
                 Spacer(Modifier.height(4.dp))
 
+                Text(t.connectLead, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Xzo thinks with a cloud brain, and that needs one access key.",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    "The key is stored only on this phone. Xzo never uploads it anywhere except to the " +
-                        "compute route that answers your questions, and it is never shown in a chat.",
+                    t.connectPrivacy,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 KeyCard(
-                    title = "Primary access key",
-                    subtitle = "Powers thinking, live web browsing, the code sandbox and voice input.",
+                    title = t.primaryKey,
+                    subtitle = t.primaryKeyHint,
                     value = primary,
                     onValueChange = { primary = it },
                     onPaste = { clipboard.getText()?.text?.let { primary = it.trim() } },
@@ -120,8 +117,8 @@ fun ConnectScreen(
                 )
 
                 KeyCard(
-                    title = "Backup access key (optional)",
-                    subtitle = "Used automatically whenever the primary route is busy or unavailable.",
+                    title = t.backupKey,
+                    subtitle = t.backupKeyHint,
                     value = backup,
                     onValueChange = { backup = it },
                     onPaste = { clipboard.getText()?.text?.let { backup = it.trim() } },
@@ -139,13 +136,8 @@ fun ConnectScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("If a key keeps getting refused", style = MaterialTheme.typography.labelLarge)
-                        listOf(
-                            "Copy the whole key — they are long, and a half-copied key always fails.",
-                            "Remove any spaces or line breaks that came along with it.",
-                            "A key that was ever posted publicly is disabled automatically. Make a new one.",
-                            "A brand-new key can take a few seconds to become active."
-                        ).forEach {
+                        Text(t.troubleTitle, style = MaterialTheme.typography.labelLarge)
+                        (if (t.rtl) com.xzo.agent.ui.troubleTipsAr else com.xzo.agent.ui.troubleTipsEn).forEach {
                             Row(verticalAlignment = Alignment.Top) {
                                 Text("•  ", style = MaterialTheme.typography.bodySmall)
                                 Text(
@@ -164,12 +156,10 @@ fun ConnectScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("Works with no key at all", style = MaterialTheme.typography.labelLarge)
+                        Text(t.offlineTitle, style = MaterialTheme.typography.labelLarge)
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Reading text out of photos and PDFs, translating between 50+ languages, " +
-                                "detecting a language, the exact calculator, your saved files, memory, " +
-                                "backups and every past conversation — all of that runs on the device itself.",
+                            t.offlineBody,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -181,7 +171,7 @@ fun ConnectScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(onClick = onDone, modifier = Modifier.weight(1f)) {
-                        Text(if (vm.keyStatus().let { it.first || it.second }) "Start using Xzo" else "Continue offline")
+                        Text(if (vm.keyStatus().let { it.first || it.second }) t.startUsing else t.continueOffline)
                     }
                 }
             }
@@ -200,6 +190,7 @@ private fun KeyCard(
     busy: Boolean,
     onSave: () -> Unit
 ) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
@@ -221,7 +212,7 @@ private fun KeyCard(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                label = { Text("Paste the key") },
+                label = { Text(t.pasteKey) },
                 trailingIcon = {
                     IconButton(onClick = onPaste) {
                         Icon(Icons.Rounded.ContentPaste, "Paste from clipboard", Modifier.size(18.dp))
@@ -229,7 +220,7 @@ private fun KeyCard(
                 },
                 supportingText = {
                     Text(
-                        if (value.isBlank()) "Not set" else "${value.length} characters",
+                        if (value.isBlank()) t.notSet else "${value.length}",
                         style = MaterialTheme.typography.labelSmall
                     )
                 },
@@ -238,10 +229,10 @@ private fun KeyCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onSave, enabled = !busy) {
-                    Text(if (busy) "Testing…" else "Save & test connection")
+                    Text(if (busy) t.testing else t.saveAndTest)
                 }
                 if (value.isNotBlank()) {
-                    OutlinedButton(onClick = { onValueChange("") }, enabled = !busy) { Text("Clear") }
+                    OutlinedButton(onClick = { onValueChange("") }, enabled = !busy) { Text(t.clear) }
                 }
             }
 
@@ -263,13 +254,13 @@ private fun KeyCard(
                         Column {
                             Text(
                                 when (c.state) {
-                                    LlmClient.KeyState.OK -> "Connected"
-                                    LlmClient.KeyState.MISSING -> "No key saved"
-                                    LlmClient.KeyState.MALFORMED -> "Key looks incomplete"
-                                    LlmClient.KeyState.REJECTED -> "Key refused"
-                                    LlmClient.KeyState.RATE_LIMITED -> "Key valid · route busy"
-                                    LlmClient.KeyState.OFFLINE -> "No network"
-                                    LlmClient.KeyState.UNKNOWN -> "Unexpected response"
+                                    LlmClient.KeyState.OK -> t.stateConnected
+                                    LlmClient.KeyState.MISSING -> t.stateMissing
+                                    LlmClient.KeyState.MALFORMED -> t.stateMalformed
+                                    LlmClient.KeyState.REJECTED -> t.stateRejected
+                                    LlmClient.KeyState.RATE_LIMITED -> t.stateBusy
+                                    LlmClient.KeyState.OFFLINE -> t.stateOffline
+                                    LlmClient.KeyState.UNKNOWN -> t.stateUnknown
                                 },
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold

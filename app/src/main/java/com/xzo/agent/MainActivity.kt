@@ -123,6 +123,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val strings = com.xzo.agent.ui.rememberStrings()
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.xzo.agent.ui.LocalStrings provides strings
+            ) {
             XzoTheme(themeMode = state.settings.themeMode) {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
@@ -216,6 +220,7 @@ class MainActivity : ComponentActivity() {
                         ModelSheet(state = state, vm = vm, onDismiss = { showModels = false })
                     }
                 }
+            }
             }
         }
     }

@@ -49,6 +49,7 @@ fun ChatDrawer(
     onOpenWorkspace: () -> Unit = {},
     onOpenAutomations: () -> Unit = {}
 ) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.width(310.dp).fillMaxHeight()
@@ -61,15 +62,15 @@ fun ChatDrawer(
             ) {
                 Text("Xzo Agent", style = MaterialTheme.typography.titleLarge)
                 Row {
-                    IconButton(onClick = { vm.newChat() }) { Icon(Icons.Rounded.Add, "New chat") }
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, "Settings") }
+                    IconButton(onClick = { vm.newChat() }) { Icon(Icons.Rounded.Add, t.newChat) }
+                    IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, t.settings) }
                 }
             }
 
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = { vm.search(it) },
-                placeholder = { Text("Search messages") },
+                placeholder = { Text(t.searchMessages) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, Modifier.size(18.dp)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -78,11 +79,11 @@ fun ChatDrawer(
             Spacer(Modifier.height(8.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DrawerPill("Prompt library", Modifier.weight(1f), onOpenLibrary)
-                DrawerPill("Workspace", Modifier.weight(1f), onOpenWorkspace)
+                DrawerPill(t.promptLibrary, Modifier.weight(1f), onOpenLibrary)
+                DrawerPill(t.workspace, Modifier.weight(1f), onOpenWorkspace)
             }
             Spacer(Modifier.height(8.dp))
-            DrawerPill("⏰ Automations", Modifier.fillMaxWidth(), onOpenAutomations)
+            DrawerPill("⏰ " + t.automations, Modifier.fillMaxWidth(), onOpenAutomations)
 
             Spacer(Modifier.height(10.dp))
 

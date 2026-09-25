@@ -77,6 +77,7 @@ fun ChatScreen(
     onCamera: () -> Unit = {},
     onOpenConnect: () -> Unit = {}
 ) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     val context = LocalContext.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val listState = rememberLazyListState()
@@ -102,7 +103,7 @@ fun ChatScreen(
                     ),
                     navigationIcon = {
                         IconButton(onClick = onOpenDrawer) {
-                            Icon(Icons.Rounded.Menu, "Chats")
+                            Icon(Icons.Rounded.Menu, t.chats)
                         }
                     },
                     title = {
@@ -132,22 +133,22 @@ fun ChatScreen(
                             IconButton(onClick = { menuOpen = true }) { Icon(Icons.Rounded.MoreVert, "More") }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("New chat") },
+                                    text = { Text(t.newChat) },
                                     onClick = { menuOpen = false; vm.newChat() })
                                 DropdownMenuItem(
-                                    text = { Text("Export as markdown") },
+                                    text = { Text(t.exportMarkdown) },
                                     onClick = { menuOpen = false; vm.exportCurrent() })
                                 DropdownMenuItem(
-                                    text = { Text("Export as PDF") },
+                                    text = { Text(t.exportPdf) },
                                     onClick = { menuOpen = false; vm.exportPdf() })
                                 DropdownMenuItem(
-                                    text = { Text("Clear messages") },
+                                    text = { Text(t.clearMessages) },
                                     onClick = { menuOpen = false; vm.clearCurrent() })
                                 DropdownMenuItem(
-                                    text = { Text("Prompt library") },
+                                    text = { Text(t.promptLibrary) },
                                     onClick = { menuOpen = false; onOpenLibrary() })
                                 DropdownMenuItem(
-                                    text = { Text("Settings") },
+                                    text = { Text(t.settings) },
                                     onClick = { menuOpen = false; onOpenSettings() })
                             }
                         }
@@ -278,13 +279,13 @@ fun ChatScreen(
 }
 
 @Composable
-private fun FollowUpRow(items: List<String>, onPick: (String) -> Unit) {
+private fun FollowUpRow(items: List<String>, title: String, onPick: (String) -> Unit) {
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
     ) {
         Text(
-            "Next",
+            title,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
         )
@@ -320,8 +321,14 @@ private fun ModeSelector(
             .padding(horizontal = 14.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val t = com.xzo.agent.ui.LocalStrings.current
         com.xzo.agent.agent.AgentMode.entries.forEach { m ->
             val selected = m == mode
+            val label = when (m) {
+                com.xzo.agent.agent.AgentMode.CHAT -> t.modeChat
+                com.xzo.agent.agent.AgentMode.AGENT -> t.modeAgent
+                com.xzo.agent.agent.AgentMode.DEEP_RESEARCH -> t.modeResearch
+            }
             Surface(
                 shape = RoundedCornerShape(50),
                 color = if (selected) MaterialTheme.colorScheme.primary
@@ -332,7 +339,7 @@ private fun ModeSelector(
                 modifier = Modifier.clickable(enabled = enabled) { onSelect(m) }
             ) {
                 Text(
-                    m.label,
+                    label,
                     style = MaterialTheme.typography.labelMedium,
                     color = if (selected) MaterialTheme.colorScheme.onPrimary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -411,7 +418,7 @@ private fun LiveTurn(state: ChatUiState) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(start = 6.dp, top = 2.dp)
             ) {
-                ThinkingDots(label = state.status ?: "Thinking…")
+                ThinkingDots(label = state.status ?: com.xzo.agent.ui.LocalStrings.current.thinking)
             }
         }
     }
@@ -419,6 +426,7 @@ private fun LiveTurn(state: ChatUiState) {
 
 @Composable
 private fun SetupNotice(onOpenSettings: () -> Unit) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
@@ -426,7 +434,7 @@ private fun SetupNotice(onOpenSettings: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable { onOpenSettings() }
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text("Xzo is not connected yet", style = MaterialTheme.typography.titleMedium)
+            Text(t.notConnected, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.size(6.dp))
             Text(
                 "Tap here to paste an access key and test the connection. On-device features — reading " +
@@ -440,6 +448,7 @@ private fun SetupNotice(onOpenSettings: () -> Unit) {
 
 @Composable
 private fun EmptyState(onSuggestion: (String) -> Unit) {
+    val t = com.xzo.agent.ui.LocalStrings.current
     val suggestions = listOf(
         "Search the web for the top AI news today and summarise it with sources",
         "Create a CSV file with a 12-month budget template and save it to my phone",
@@ -460,7 +469,7 @@ private fun EmptyState(onSuggestion: (String) -> Unit) {
         )
         Text("Xzo Agent", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Plan · Act · Observe · Verify",
+            t.tagline,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -481,7 +490,7 @@ private fun EmptyState(onSuggestion: (String) -> Unit) {
             }
         }
         Text(
-            "Free and unlimited: Xzo never charges you, never shows ads and sets no quota of its own.",
+            t.freeNote,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp)
