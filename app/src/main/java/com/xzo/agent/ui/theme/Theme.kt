@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -17,6 +18,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.view.WindowCompat
@@ -94,9 +96,31 @@ private val XzoTypography = Typography(
     labelSmall = TextStyle(fontFamily = XzoFonts.Sans, fontWeight = FontWeight.Medium, fontSize = 11.sp)
 )
 
+private fun Typography.scaledBy(factor: Float): Typography {
+    if (factor == 1f) return this
+    fun TextStyle.s() = copy(
+        fontSize = fontSize * factor,
+        lineHeight = if (lineHeight.isSpecified) lineHeight * factor else lineHeight
+    )
+    return copy(
+        displaySmall = displaySmall.s(),
+        headlineMedium = headlineMedium.s(),
+        headlineSmall = headlineSmall.s(),
+        titleLarge = titleLarge.s(),
+        titleMedium = titleMedium.s(),
+        bodyLarge = bodyLarge.s(),
+        bodyMedium = bodyMedium.s(),
+        bodySmall = bodySmall.s(),
+        labelLarge = labelLarge.s(),
+        labelMedium = labelMedium.s(),
+        labelSmall = labelSmall.s()
+    )
+}
+
 @Composable
 fun XzoTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    fontScale: Float = 1f,
     content: @Composable () -> Unit
 ) {
     val dark = when (themeMode) {
@@ -121,9 +145,10 @@ fun XzoTheme(
     }
 
     CompositionLocalProvider(LocalXzoGradient provides gradient) {
+        val scaled = remember(fontScale) { XzoTypography.scaledBy(fontScale) }
         MaterialTheme(
             colorScheme = colors,
-            typography = XzoTypography,
+            typography = scaled,
             shapes = XzoShapes,
             content = content
         )

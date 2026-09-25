@@ -43,7 +43,8 @@ data class AppSettings(
     val reasoningEffort: String = "medium",
     val speakReplies: Boolean = false,
     val voiceLanguage: String = "",
-    val autoRoute: Boolean = true
+    val autoRoute: Boolean = true,
+    val fontScale: Float = 1.0f
 )
 
 class SettingsRepository(private val context: Context) {
@@ -73,6 +74,7 @@ class SettingsRepository(private val context: Context) {
         val speakReplies = booleanPreferencesKey("speak_replies")
         val voiceLanguage = stringPreferencesKey("voice_language")
         val autoRoute = booleanPreferencesKey("auto_route")
+        val fontScale = androidx.datastore.preferences.core.floatPreferencesKey("font_scale")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -100,7 +102,8 @@ class SettingsRepository(private val context: Context) {
             reasoningEffort = p[Keys.reasoningEffort] ?: "medium",
             speakReplies = p[Keys.speakReplies] ?: false,
             voiceLanguage = p[Keys.voiceLanguage].orEmpty(),
-            autoRoute = p[Keys.autoRoute] ?: true
+            autoRoute = p[Keys.autoRoute] ?: true,
+            fontScale = p[Keys.fontScale] ?: 1.0f
         )
     }
 
@@ -125,6 +128,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSpeakReplies(v: Boolean) = edit { it[Keys.speakReplies] = v }
     suspend fun setVoiceLanguage(v: String) = edit { it[Keys.voiceLanguage] = v.trim() }
     suspend fun setAutoRoute(v: Boolean) = edit { it[Keys.autoRoute] = v }
+    suspend fun setFontScale(v: Float) = edit { it[Keys.fontScale] = v.coerceIn(0.85f, 1.45f) }
     suspend fun setGroqKey(v: String) = edit { it[Keys.groqKey] = v.trim() }
     suspend fun setOpenRouterKey(v: String) = edit { it[Keys.orKey] = v.trim() }
 

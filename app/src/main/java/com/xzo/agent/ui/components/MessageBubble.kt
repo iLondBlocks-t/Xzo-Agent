@@ -7,7 +7,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,11 +48,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.xzo.agent.agent.AgentTraceLog
+import com.xzo.agent.agent.ToolTrace
 import com.xzo.agent.data.db.MessageEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
     message: MessageEntity,
@@ -68,6 +72,9 @@ fun MessageBubble(
     val isUser = message.role == "user"
     val clipboard = LocalClipboardManager.current
     var expanded by remember(message.id) { mutableStateOf(false) }
+    var sheetOpen by remember(message.id) { mutableStateOf(false) }
+    var viewerUri by remember(message.id) { mutableStateOf<String?>(null) }
+    var traceDialog by remember(message.id) { mutableStateOf<com.xzo.agent.agent.ToolTrace?>(null) }
 
     AnimatedVisibility(
         visible = true,
@@ -94,7 +101,12 @@ fun MessageBubble(
                     1.dp,
                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                 ),
-                modifier = Modifier.widthIn(max = 480.dp)
+                modifier = Modifier
+                    .widthIn(max = 480.dp)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { sheetOpen = true }
+                    )
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
                     val refs = remember(message.attachmentsJson) {
@@ -107,7 +119,7 @@ fun MessageBubble(
                             modifier = Modifier.padding(bottom = 8.dp)
                         ) {
                             images.take(3).forEach { ref ->
-                                UriThumbnail(uri = ref.uri, size = 96.dp)
+                                UriThumbnail(uri = ref.uri, size = 96.dp, onClick = { viewerUri = ref.uri })
                             }
                         }
                     }
@@ -229,13 +241,65 @@ fun MessageBubble(
                 }
 
                 AnimatedVisibility(visible = expanded) {
-                    TracePanel(trace, onOpenArtifact)
+                    TracePanel(trace, onOpenArtifact, onInspect = { traceDialog = it })
                 }
 
                 MetaLine(message, trace)
             }
+
+            MessageDialogs(
+                message = message,
+                sheetOpen = sheetOpen,
+                onSheetDismiss = { sheetOpen = false },
+                onSpeak = onSpeak,
+                onEdit = onEdit,
+                onBranch = onBranch,
+                onShare = onShare,
+                onRetry = onRetry
+            )
+
+            viewerUri?.let { uri ->
+                ImageViewerDialog(uri = uri, onDismiss = { viewerUri = null })
+            }
+
+            traceDialog?.let { tr ->
+                ToolOutputDialog(trace = tr, onDismiss = { traceDialog = null })
+            }
         }
     }
+}
+
+@Composable
+private fun MessageDialogs(
+    message: MessageEntity,
+    sheetOpen: Boolean,
+    onSheetDismiss: () -> Unit,
+    onSpeak: () -> Unit,
+    onEdit: () -> Unit,
+    onBranch: () -> Unit,
+    onShare: (String) -> Unit,
+    onRetry: () -> Unit
+) {
+    val clipboard = LocalClipboardManager.current
+    if (!sheetOpen) return
+    val actions = buildList {
+        add(SheetAction("Copy text", Icons.Rounded.ContentCopy) {
+            clipboard.setText(AnnotatedString(message.content))
+        })
+        add(SheetAction("Share", Icons.Rounded.Share) { onShare(message.content) })
+        if (message.role == "assistant") {
+            add(SheetAction("Read aloud", Icons.Rounded.VolumeUp, onSpeak))
+            add(SheetAction("Regenerate", Icons.Rounded.Refresh, onRetry))
+        } else {
+            add(SheetAction("Edit & resend", Icons.Rounded.Edit, onEdit))
+            add(SheetAction("Branch from here", Icons.Rounded.CallSplit, onBranch))
+        }
+    }
+    ActionSheetDialog(
+        title = message.content.take(60).replace("\n", " "),
+        actions = actions,
+        onDismiss = onSheetDismiss
+    )
 }
 
 @Composable
@@ -261,7 +325,11 @@ private fun MetaLine(message: MessageEntity, trace: AgentTraceLog) {
 }
 
 @Composable
-fun TracePanel(trace: AgentTraceLog, onOpenArtifact: (String) -> Unit) {
+fun TracePanel(
+    trace: AgentTraceLog,
+    onOpenArtifact: (String) -> Unit,
+    onInspect: (ToolTrace) -> Unit = {}
+) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -277,16 +345,14 @@ fun TracePanel(trace: AgentTraceLog, onOpenArtifact: (String) -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         trace.steps.forEachIndexed { i, s ->
-            Column {
+            Column(Modifier.clickable { onInspect(s) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(6.dp)
-                            .background(
-                                if (s.ok) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                                RoundedCornerShape(3.dp)
-                            )
+                    Icon(
+                        com.xzo.agent.ui.components.XzoIcons.forTool(s.tool.lowercase()),
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = if (s.ok) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(

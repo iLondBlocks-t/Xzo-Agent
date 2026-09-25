@@ -127,7 +127,10 @@ class MainActivity : ComponentActivity() {
             androidx.compose.runtime.CompositionLocalProvider(
                 com.xzo.agent.ui.LocalStrings provides strings
             ) {
-            XzoTheme(themeMode = state.settings.themeMode) {
+            XzoTheme(
+                themeMode = state.settings.themeMode,
+                fontScale = state.settings.fontScale
+            ) {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 var showSettings by remember { mutableStateOf(false) }

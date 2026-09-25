@@ -226,6 +226,9 @@ fun SettingsScreen(
                                 selected = s.themeMode == mode
                             ) { scope.launch { repo.setThemeMode(mode) } }
                         }
+                        SliderRow("Text size", s.fontScale, 0.85f, 1.45f, "%.2fx") {
+                            scope.launch { repo.setFontScale(it) }
+                        }
                         ToggleRow("Animated background", "Slow drifting gradient", s.animatedBackground) {
                             scope.launch { repo.setAnimatedBackground(it) }
                         }
