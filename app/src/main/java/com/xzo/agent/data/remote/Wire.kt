@@ -16,7 +16,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /**
- * OpenAI-compatible wire types shared by Groq and OpenRouter.
+ * OpenAI-compatible wire types shared by the compute routes.
  * Kept deliberately lenient: unknown keys are ignored so a provider adding
  * fields never crashes the app.
  */
@@ -64,9 +64,9 @@ data class WireMessage(
     @SerialName("tool_calls") val toolCalls: List<ToolCall>? = null,
     @SerialName("tool_call_id") val toolCallId: String? = null,
     val name: String? = null,
-    /** GPT-OSS reasoning trace (Groq). Never sent back up. */
+    /** GPT-OSS reasoning trace (the primary route). Never sent back up. */
     val reasoning: String? = null,
-    /** Groq server-side tool executions (browser_search / code_interpreter). */
+    /** the primary route server-side tool executions (browser_search / code_interpreter). */
     @SerialName("executed_tools") val executedTools: List<ExecutedTool>? = null
 )
 
@@ -151,7 +151,7 @@ data class FunctionDef(
 @Serializable
 data class ToolDef(
     val type: String = "function",
-    /** Null for Groq built-in tools such as {"type":"browser_search"}. */
+    /** Null for server-side tools such as {"type":"browser_search"}. */
     val function: FunctionDef? = null
 )
 

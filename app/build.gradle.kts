@@ -66,8 +66,19 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // One build, always installable: use the real release keystore when the
+            // secrets are present, otherwise fall back to the standard debug key so
+            // the produced APK can still be installed directly on a phone.
             val sc = signingConfigs.getByName("releaseIfAvailable")
-            if (sc.storeFile != null) signingConfig = sc
+            signingConfig = if (sc.storeFile != null) sc else signingConfigs.getByName("debug")
+        }
+    }
+
+    // A single, clearly named artifact — no debug/release confusion for the user.
+    applicationVariants.all {
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output?.outputFileName = "Xzo-Agent-${'$'}{defaultConfig.versionName}.apk"
         }
     }
 

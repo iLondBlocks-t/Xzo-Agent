@@ -125,8 +125,8 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                             s.autoRoute
                         ) { scope.launch { repo.setAutoRoute(it) } }
                         ToggleRow(
-                            "Groq built-in tools",
-                            "Use server-side browser search (Exa) and the Python sandbox (E2B) when the model supports them",
+                            "Server-side tools",
+                            "Let Xzo browse the live web and run code in a secure cloud sandbox",
                             s.useBuiltInTools
                         ) { scope.launch { repo.setBuiltInTools(it) } }
                         ToggleRow("Self-verification", "Second pass that checks the answer before showing it", s.selfVerify) {
@@ -238,21 +238,21 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                 item {
                     Card("API keys") {
                         Text(
-                            "Keys normally come from GitHub Secrets baked into the build. " +
-                                "You can override them here; overrides stay on this device only.",
+                            "Xzo needs an access key to reach its cloud brains. Keys are stored only on this device " +
+                                "and are never sent anywhere except to the compute route itself.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(8.dp))
-                        StatusRow("Groq key", groqOk, BuildConfig.GROQ_API_KEY.isNotBlank())
-                        StatusRow("OpenRouter key", orOk, BuildConfig.OPENROUTER_API_KEY.isNotBlank())
+                        StatusRow("Primary access key", groqOk, BuildConfig.GROQ_API_KEY.isNotBlank())
+                        StatusRow("Backup access key", orOk, BuildConfig.OPENROUTER_API_KEY.isNotBlank())
                         Spacer(Modifier.height(8.dp))
 
                         var groq by remember(s.groqKeyOverride) { mutableStateOf(s.groqKeyOverride) }
                         OutlinedTextField(
                             value = groq,
                             onValueChange = { groq = it },
-                            label = { Text("Groq API key override") },
+                            label = { Text("Primary access key") },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             modifier = Modifier.fillMaxWidth()
@@ -262,7 +262,7 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         OutlinedTextField(
                             value = or,
                             onValueChange = { or = it },
-                            label = { Text("OpenRouter API key override") },
+                            label = { Text("Backup access key") },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             modifier = Modifier.fillMaxWidth()
@@ -297,9 +297,8 @@ fun SettingsScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.height(6.dp))
                         Text(
                             "“Unlimited” means this app imposes no cost, quota, ads, login or paywall. " +
-                                "Your actual throughput is still governed by the free-tier rate limits of Groq " +
-                                "and OpenRouter; when they return HTTP 429 the app backs off, retries and " +
-                                "automatically falls back to the other provider.",
+                                "Your throughput is bound only by the free capacity of the compute routes; when a route is " +
+                                "saturated Xzo backs off, retries and switches to a backup automatically.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

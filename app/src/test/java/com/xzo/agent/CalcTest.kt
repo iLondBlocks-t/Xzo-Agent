@@ -39,3 +39,32 @@ class CalcTest {
         assertTrue(runCatching { Calc.eval("nope(2)") }.isFailure)
     }
 }
+
+class RateSnapshotTest {
+
+    @Test
+    fun `summary reports what the provider sent`() {
+        val s = com.xzo.agent.data.remote.RateSnapshot(
+            provider = "Groq",
+            requestsRemaining = 985,
+            requestsLimit = 1000,
+            tokensRemaining = 240_000,
+            tokensLimit = 250_000,
+            resetRequests = "2m59s"
+        )
+        val text = s.summary()
+        assertTrue(text.contains("Groq"))
+        assertTrue(text.contains("985/1000 req"))
+        assertTrue(text.contains("240k/250k tok"))
+        assertTrue(text.contains("resets in 2m59s"))
+        assertEquals(0.985f, s.requestFraction!!, 1e-4f)
+    }
+
+    @Test
+    fun `missing headers degrade gracefully`() {
+        val s = com.xzo.agent.data.remote.RateSnapshot(provider = "OpenRouter")
+        assertEquals("OpenRouter", s.summary())
+        assertEquals(null, s.requestFraction)
+        assertEquals(null, s.tokenFraction)
+    }
+}

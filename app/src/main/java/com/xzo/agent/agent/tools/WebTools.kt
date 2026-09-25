@@ -12,7 +12,7 @@ import kotlinx.serialization.json.JsonObject
 /**
  * Real-time web search.
  *
- * When the selected model is `groq/compound`, Groq performs search server-side
+ * When the selected model is `groq/compound`, the primary route performs search server-side
  * and this tool is rarely called. For every other model it provides the same
  * capability through key-less endpoints (DuckDuckGo → Wikipedia).
  */
@@ -35,15 +35,15 @@ object WebSearchTool : AgentTool {
         val limit = args.intOr("max_results", 6).coerceIn(1, 10)
         ctx.emit("Searching the web for “$q”…")
 
-        // Preferred path: Groq's built-in browser search (Exa) via a small sub-call.
+        // Preferred path: the high-fidelity browsing engine via a small sub-call.
         if (ctx.llm.hasKeyFor(com.xzo.agent.data.remote.Provider.GROQ)) {
-            val viaGroq = runCatching { groqBrowserSearch(q, limit, ctx) }.getOrNull()
-            if (!viaGroq.isNullOrBlank()) {
-                return ToolResult.ok(viaGroq, "Browsed the web for “$q”")
+            val browsed = runCatching { liveBrowserSearch(q, limit, ctx) }.getOrNull()
+            if (!browsed.isNullOrBlank()) {
+                return ToolResult.ok(browsed, "Browsed the web for “$q”")
             }
         }
 
-        // Key-less fallback: DuckDuckGo → Wikipedia.
+        // Key-less fallback: open web indexes.
         return try {
             val hits = ctx.web.search(q, limit)
             if (hits.isEmpty()) return ToolResult.ok(
@@ -69,7 +69,7 @@ object WebSearchTool : AgentTool {
 }
 
 /** Fetch and read a specific page so the agent can go beyond snippets. */
-private suspend fun groqBrowserSearch(query: String, limit: Int, ctx: ToolContext): String? {
+private suspend fun liveBrowserSearch(query: String, limit: Int, ctx: ToolContext): String? {
     val spec = com.xzo.agent.data.remote.ModelCatalog.GPT_OSS_20B
     val res = ctx.llm.complete(
         spec,
@@ -96,7 +96,7 @@ private suspend fun groqBrowserSearch(query: String, limit: Int, ctx: ToolContex
         .distinctBy { it.url }
         .take(limit)
     val body = buildString {
-        appendLine("Live web results for \"$query\" (Groq browser search):")
+        appendLine("Live web results for \"$query\":")
         appendLine()
         appendLine(res.content.trim())
         if (sources.isNotEmpty()) {

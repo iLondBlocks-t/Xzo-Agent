@@ -50,7 +50,11 @@ data class ChatUiState(
     val mode: com.xzo.agent.agent.AgentMode = com.xzo.agent.agent.AgentMode.AGENT,
     val plan: String? = null,
     val lastError: String? = null,
-    val automations: List<com.xzo.agent.data.db.AutomationEntity> = emptyList()
+    val automations: List<com.xzo.agent.data.db.AutomationEntity> = emptyList(),
+    val rateLimit: com.xzo.agent.data.remote.RateSnapshot? = null,
+    val keyChecks: Map<com.xzo.agent.data.remote.Provider, com.xzo.agent.data.remote.LlmClient.KeyCheck> = emptyMap(),
+    val checkingKey: com.xzo.agent.data.remote.Provider? = null,
+    val needsSetup: Boolean = false
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -98,7 +102,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             container.modelRegistry.models.collectLatest { m -> _state.update { it.copy(models = m) } }
         }
         viewModelScope.launch {
+            com.xzo.agent.data.remote.RateLimitTracker.groq.collectLatest { snap ->
+                _state.update { it.copy(rateLimit = snap) }
+            }
+        }
+        viewModelScope.launch {
             container.modelRegistry.refreshing.collectLatest { r -> _state.update { it.copy(refreshingModels = r) } }
+        }
+        viewModelScope.launch {
+            // Wait for the stored overrides to load before deciding setup is needed.
+            kotlinx.coroutines.delay(250)
+            if (!container.llm.hasAnyKey()) _state.update { it.copy(needsSetup = true) }
         }
         viewModelScope.launch {
             val first = repo.conversations().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()).value
@@ -131,6 +145,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun renameChat(id: Long, title: String) = viewModelScope.launch { repo.rename(id, title) }
     fun pinChat(id: Long, pinned: Boolean) = viewModelScope.launch { repo.setPinned(id, pinned) }
     fun clearCurrent() = viewModelScope.launch { repo.clearConversation(_state.value.conversationId) }
+
+    fun exportPdf() = viewModelScope.launch {
+        val s = _state.value
+        if (s.messages.isEmpty()) { banner("Nothing to export yet"); return@launch }
+        banner("Building PDF…")
+        val saved = com.xzo.agent.core.PdfExporter.export(s.title, s.messages, container.files)
+        banner(if (saved != null) "Saved ${saved.name}" else "PDF export cancelled")
+    }
 
     fun exportCurrent() = viewModelScope.launch {
         val saved = repo.exportConversation(_state.value.conversationId)
@@ -409,6 +431,35 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshModels() = container.modelRegistry.refresh { msg -> banner(msg) }
 
+    /* ------------------------------ access keys ------------------------------ */
+
+    /** Saves a key and immediately proves whether it actually works. */
+    fun saveAndTestKey(provider: com.xzo.agent.data.remote.Provider, key: String) =
+        viewModelScope.launch {
+            when (provider) {
+                com.xzo.agent.data.remote.Provider.GROQ -> container.settingsRepo.setGroqKey(key)
+                com.xzo.agent.data.remote.Provider.OPENROUTER -> container.settingsRepo.setOpenRouterKey(key)
+            }
+            // Give the settings flow a moment to publish before probing.
+            kotlinx.coroutines.delay(120)
+            testKey(provider)
+        }
+
+    fun testKey(provider: com.xzo.agent.data.remote.Provider) = viewModelScope.launch {
+        _state.update { it.copy(checkingKey = provider) }
+        val result = container.llm.verifyKey(provider)
+        _state.update {
+            it.copy(
+                checkingKey = null,
+                keyChecks = it.keyChecks + (provider to result),
+                needsSetup = if (result.ok) false else it.needsSetup
+            )
+        }
+        banner(if (result.ok) "Connected ✓" else result.detail.take(120))
+    }
+
+    fun dismissSetup() = _state.update { it.copy(needsSetup = false) }
+
     fun onMicTap(hasPermission: Boolean) {
         if (!hasPermission) {
             viewModelScope.launch { micPermissionRequests.emit(Unit) }
@@ -504,7 +555,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun saveAutomation(a: com.xzo.agent.data.db.AutomationEntity) = viewModelScope.launch {
         val id = repo.upsertAutomation(a)
         repo.automationById(id)?.let {
-            com.xzo.agent.core.AutomationScheduler.schedule(getApplication(), it)
+            com.xzo.agent.core.AutomationScheduler.schedule(getApplication<Application>(), it)
         }
         banner(
             if (a.enabled) "Scheduled “${a.title}” daily at %02d:%02d".format(a.hour, a.minute)
@@ -516,17 +567,17 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.setAutomationEnabled(a.id, enabled)
             val updated = a.copy(enabled = enabled)
-            if (enabled) com.xzo.agent.core.AutomationScheduler.schedule(getApplication(), updated)
-            else com.xzo.agent.core.AutomationScheduler.cancel(getApplication(), a.id)
+            if (enabled) com.xzo.agent.core.AutomationScheduler.schedule(getApplication<Application>(), updated)
+            else com.xzo.agent.core.AutomationScheduler.cancel(getApplication<Application>(), a.id)
         }
 
     fun runAutomationNow(a: com.xzo.agent.data.db.AutomationEntity) {
-        com.xzo.agent.core.AutomationScheduler.runNow(getApplication(), a.id)
+        com.xzo.agent.core.AutomationScheduler.runNow(getApplication<Application>(), a.id)
         banner("Running “${a.title}” now — you'll get a notification")
     }
 
     fun deleteAutomation(a: com.xzo.agent.data.db.AutomationEntity) = viewModelScope.launch {
-        com.xzo.agent.core.AutomationScheduler.cancel(getApplication(), a.id)
+        com.xzo.agent.core.AutomationScheduler.cancel(getApplication<Application>(), a.id)
         repo.deleteAutomation(a.id)
     }
 

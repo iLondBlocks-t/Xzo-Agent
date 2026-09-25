@@ -12,7 +12,7 @@ import java.io.File
 import java.util.Locale
 
 /**
- * Microphone capture (m4a/AAC) for Groq Whisper transcription.
+ * Microphone capture (m4a/AAC) for the cloud speech engine transcription.
  * Needs only RECORD_AUDIO, requested at the moment the user taps the mic.
  */
 class VoiceRecorder(private val context: Context) {

@@ -55,7 +55,7 @@ fun ModelSheet(state: ChatUiState, vm: ChatViewModel, onDismiss: () -> Unit) {
             Text("Choose a model", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Groq is the primary provider; OpenRouter is used automatically as a fallback when Groq errors or rate-limits.",
+                "Pick the brain Xzo should think with. If a route is busy, Xzo switches to a backup automatically.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -68,11 +68,11 @@ fun ModelSheet(state: ChatUiState, vm: ChatViewModel, onDismiss: () -> Unit) {
             val groqModels = state.models.filter { it.provider == com.xzo.agent.data.remote.Provider.GROQ }
             val orModels = state.models.filter { it.provider == com.xzo.agent.data.remote.Provider.OPENROUTER }
 
-            Text("Groq", style = MaterialTheme.typography.labelLarge)
+            Text("Main routes", style = MaterialTheme.typography.labelLarge)
             groqModels.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
 
             Spacer(Modifier.height(10.dp))
-            Text("OpenRouter", style = MaterialTheme.typography.labelLarge)
+            Text("Backup routes", style = MaterialTheme.typography.labelLarge)
             orModels.forEach { m -> ModelRow(m, state.settings.primaryModel == m.id) { pick(vm, scope, m) } }
         }
     }

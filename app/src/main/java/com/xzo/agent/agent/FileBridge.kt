@@ -85,6 +85,18 @@ class FileBridge(private val appContext: Context) {
         }
     }
 
+    /** Same as [createDocument] but for binary payloads (PDF, images…). */
+    suspend fun createBinaryDocument(name: String, mime: String, bytes: ByteArray): SavedFile? {
+        val id = ++counter
+        val uri = await(Request.Create(id, name, mime)) ?: return null
+        return withContext(Dispatchers.IO) {
+            appContext.contentResolver.openOutputStream(uri, "wt")?.use { os ->
+                os.write(bytes); os.flush()
+            } ?: return@withContext null
+            SavedFile(uri, displayName(uri) ?: name, bytes.size)
+        }
+    }
+
     data class LoadedFile(
         val uri: Uri,
         val name: String,

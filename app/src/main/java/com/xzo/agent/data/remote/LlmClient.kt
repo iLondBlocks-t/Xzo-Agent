@@ -28,7 +28,11 @@ class LlmException(
     val httpCode: Int = -1,
     val retryable: Boolean = false,
     val rateLimited: Boolean = false,
-    val retryAfterMs: Long = 0L
+    val retryAfterMs: Long = 0L,
+    /** No key is configured at all — the user has not finished setup. */
+    val missingKey: Boolean = false,
+    /** A key exists but the route refused it (mistyped, revoked, disabled). */
+    val rejectedKey: Boolean = false
 ) : Exception(message)
 
 /** Accumulated result of a single model turn. */
@@ -72,15 +76,89 @@ class LlmClient(
         .retryOnConnectionFailure(true)
         .build()
 
-    fun hasKeyFor(provider: Provider): Boolean = when (provider) {
-        Provider.GROQ -> keyProvider.groqKey().isNotBlank()
-        Provider.OPENROUTER -> keyProvider.openRouterKey().isNotBlank()
+    fun hasKeyFor(provider: Provider): Boolean = keyFor(provider).isNotBlank()
+
+    fun keyFor(provider: Provider): String = when (provider) {
+        Provider.GROQ -> keyProvider.groqKey().trim()
+        Provider.OPENROUTER -> keyProvider.openRouterKey().trim()
+    }
+
+    fun hasAnyKey(): Boolean = Provider.entries.any { hasKeyFor(it) }
+
+    /** Thrown instead of firing a request that is guaranteed to come back 401. */
+    private fun requireKey(spec: ModelSpec) {
+        if (keyFor(spec.provider).isBlank()) {
+            throw LlmException(
+                "No access key is set up yet, so Xzo cannot reach its cloud brain. " +
+                    "Open Settings → Access keys and paste a key.",
+                httpCode = 0,
+                retryable = false,
+                missingKey = true
+            )
+        }
+    }
+
+    /* ----------------------------- key checking ----------------------------- */
+
+    enum class KeyState { OK, MISSING, MALFORMED, REJECTED, RATE_LIMITED, OFFLINE, UNKNOWN }
+
+    data class KeyCheck(val state: KeyState, val detail: String) {
+        val ok: Boolean get() = state == KeyState.OK
+    }
+
+    /**
+     * Cheap live probe so the user learns *precisely* what is wrong instead of a
+     * bare "rejected": not set, wrong shape, revoked, or simply out of capacity.
+     */
+    suspend fun verifyKey(provider: Provider): KeyCheck = withContext(Dispatchers.IO) {
+        val key = keyFor(provider)
+        if (key.isBlank()) {
+            return@withContext KeyCheck(KeyState.MISSING, "No key saved for this route yet.")
+        }
+        if (key.length < 20 || key.any { it.isWhitespace() }) {
+            return@withContext KeyCheck(
+                KeyState.MALFORMED,
+                "That does not look like a complete key — it is ${key.length} characters and keys are much longer. " +
+                    "Copy the whole key, with no spaces or line breaks."
+            )
+        }
+        val request = Request.Builder()
+            .url(provider.modelsEndpoint)
+            .get()
+            .header("Authorization", "Bearer $key")
+            .build()
+        try {
+            http.newCall(request).executeSuspending().use { r ->
+                RateLimitTracker.record(provider, r)
+                val body = r.body?.string().orEmpty()
+                when {
+                    r.isSuccessful -> {
+                        val count = runCatching {
+                            WireJson.decodeFromString(ModelListResponse.serializer(), body).data.size
+                        }.getOrDefault(0)
+                        KeyCheck(KeyState.OK, "Connected · $count brains reachable")
+                    }
+                    r.code == 401 || r.code == 403 -> KeyCheck(
+                        KeyState.REJECTED,
+                        "The key was refused. It is either mistyped, revoked, or was disabled after being " +
+                            "made public. Generate a fresh key and paste it again."
+                    )
+                    r.code == 429 -> KeyCheck(
+                        KeyState.RATE_LIMITED,
+                        "The key works, but the route is at capacity right now. Try again shortly."
+                    )
+                    else -> KeyCheck(KeyState.UNKNOWN, "Unexpected response ${r.code}. ${friendlyMessage(body).take(120)}")
+                }
+            }
+        } catch (t: Throwable) {
+            KeyCheck(KeyState.OFFLINE, "Could not reach the network: ${t.message ?: "no connection"}")
+        }
     }
 
     /**
      * Normalises a request for a specific provider/model:
-     *  - Groq wants `max_completion_tokens`; OpenRouter wants `max_tokens`.
-     *  - Groq built-in tools are appended for models that support them.
+     *  - the primary route wants `max_completion_tokens`; the backup route wants `max_tokens`.
+     *  - server-side tools are appended for models that support them.
      *  - Models without client tool-calling get the tools array stripped.
      */
     fun adapt(spec: ModelSpec, request: ChatRequest, allowBuiltIns: Boolean): ChatRequest {
@@ -101,6 +179,7 @@ class LlmClient(
     }
 
     private fun buildRequest(spec: ModelSpec, bodyJson: String): Request {
+        requireKey(spec)
         val b = Request.Builder()
             .url(spec.provider.endpoint)
             .post(bodyJson.toRequestBody(jsonMedia))
@@ -124,6 +203,7 @@ class LlmClient(
             val call = http.newCall(buildRequest(spec, body))
             val response = call.executeSuspending()
             response.use { r ->
+                RateLimitTracker.record(spec.provider, r)
                 val text = r.body?.string().orEmpty()
                 if (!r.isSuccessful) throw errorFor(r, text)
                 val parsed = runCatching { WireJson.decodeFromString(ChatResponse.serializer(), text) }
@@ -158,6 +238,7 @@ class LlmClient(
         val call = http.newCall(buildRequest(spec, body))
         val response = call.executeSuspending()
         response.use { r ->
+            RateLimitTracker.record(spec.provider, r)
             if (!r.isSuccessful) {
                 val errText = r.body?.string().orEmpty()
                 throw errorFor(r, errText)
@@ -226,12 +307,12 @@ class LlmClient(
     }
 
     /**
-     * Speech-to-text through Groq Whisper (free tier). Used by the mic button.
+     * Speech-to-text through the cloud speech engine (free tier). Used by the mic button.
      * Returns the transcript, or throws [LlmException].
      */
     suspend fun transcribe(file: java.io.File, language: String? = null): String =
         withContext(Dispatchers.IO) {
-            if (!hasKeyFor(Provider.GROQ)) throw LlmException("A Groq key is required for voice input.")
+            if (!hasKeyFor(Provider.GROQ)) throw LlmException("Voice input needs an Xzo access key. Add one in Settings.")
             val body = okhttp3.MultipartBody.Builder()
                 .setType(okhttp3.MultipartBody.FORM)
                 .addFormDataPart(
@@ -293,31 +374,38 @@ class LlmClient(
         }
     }
 
+    private fun friendlyMessage(text: String): String = runCatching {
+        WireJson.decodeFromString(ChatResponse.serializer(), text).error?.message.orEmpty()
+    }.getOrDefault("")
+
     private fun errorFor(r: Response, text: String): LlmException {
         val friendly = extractMessage(text)
         val retryAfter = r.header("retry-after")?.toLongOrNull()?.times(1000) ?: 0L
         return when (r.code) {
             401, 403 -> LlmException(
-                "Auth rejected (${r.code}). Check the API key for this provider. $friendly".trim(),
-                r.code
+                "Your access key was refused (${r.code}) — it is mistyped, revoked, or was disabled " +
+                    "after being exposed publicly. Create a fresh key and paste it in Settings → Access keys. " +
+                    friendly,
+                r.code,
+                rejectedKey = true
             )
             400 -> LlmException(
                 if (friendly.contains("decommission", true) || friendly.contains("does not exist", true))
-                    "This model is no longer available on ${'$'}{r.request.url.host}. $friendly".trim()
+                    "That brain has been retired. Xzo is switching to a current one. $friendly".trim()
                 else "Bad request (400). $friendly".trim(),
                 r.code,
                 retryable = friendly.contains("decommission", true) ||
                     friendly.contains("does not exist", true) ||
                     friendly.contains("tool", true)
             )
-            404 -> LlmException("Model not found on this provider (404). $friendly".trim(), r.code, retryable = true)
+            404 -> LlmException("That brain is not reachable on this route (404). $friendly".trim(), r.code, retryable = true)
             408, 409, 425 -> LlmException("Transient error ${r.code}. $friendly".trim(), r.code, retryable = true)
             429 -> LlmException(
-                "Rate limited by the provider free tier. $friendly".trim(),
+                "This route is at capacity right now. $friendly".trim(),
                 r.code, retryable = true, rateLimited = true,
                 retryAfterMs = if (retryAfter > 0) retryAfter else 4000L
             )
-            in 500..599 -> LlmException("Provider server error ${r.code}. $friendly".trim(), r.code, retryable = true)
+            in 500..599 -> LlmException("The route had a server error (${r.code}). $friendly".trim(), r.code, retryable = true)
             else -> LlmException("HTTP ${r.code}. $friendly".trim(), r.code)
         }
     }

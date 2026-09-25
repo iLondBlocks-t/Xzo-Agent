@@ -115,6 +115,10 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 when (intent?.action) {
                     "com.xzo.agent.NEW_CHAT" -> vm.newChat()
+                    "com.xzo.agent.VOICE" -> {
+                        vm.newChat()
+                        vm.onMicTap(hasMicPermission())
+                    }
                     else -> Unit
                 }
             }
@@ -129,8 +133,19 @@ class MainActivity : ComponentActivity() {
                 }
                 var showWorkspace by remember { mutableStateOf(false) }
                 var showAutomations by remember { mutableStateOf(false) }
+                var showConnect by remember { mutableStateOf(false) }
 
-                if (showSettings) {
+                if (showConnect || state.needsSetup) {
+                    com.xzo.agent.ui.screens.ConnectScreen(
+                        state = state,
+                        vm = vm,
+                        showBack = showConnect,
+                        onDone = {
+                            showConnect = false
+                            vm.dismissSetup()
+                        }
+                    )
+                } else if (showSettings) {
                     SettingsScreen(state = state, vm = vm, onBack = { showSettings = false })
                 } else if (showLibrary) {
                     com.xzo.agent.ui.screens.LibraryScreen(
@@ -187,6 +202,7 @@ class MainActivity : ComponentActivity() {
                             onOpenModels = { showModels = true },
                             onMic = { vm.onMicTap(hasMicPermission()) },
                             onOpenLibrary = { showLibrary = true },
+                            onOpenConnect = { showConnect = true },
                             onCamera = { vm.capturePhoto() }
                         )
                     }

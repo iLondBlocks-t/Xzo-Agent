@@ -78,12 +78,28 @@ class ChatRepository(
         db.messages().totalTokens() ?: 0
     )
 
-    /** Build the wire history (excluding the message currently being sent). */
-    suspend fun wireHistory(cid: Long, window: Int): List<WireMessage> =
-        db.messages().listFor(cid)
+    /**
+     * Builds the wire history, bounded by BOTH a message count and a token budget.
+     *
+     * Counting messages alone is not enough: one pasted log file can blow a 131k
+     * context on its own. Characters ÷ 4 is the standard rough token estimate and
+     * is deliberately conservative here.
+     */
+    suspend fun wireHistory(cid: Long, window: Int, tokenBudget: Int = 24_000): List<WireMessage> {
+        val candidates = db.messages().listFor(cid)
             .filter { it.role == "user" || (it.role == "assistant" && !it.error && it.content.isNotBlank()) }
             .takeLast(window)
-            .map { WireMessage(it.role, it.content) }
+
+        val kept = ArrayDeque<WireMessage>()
+        var tokens = 0
+        for (m in candidates.asReversed()) {
+            val cost = (m.content.length / 4) + 8
+            if (tokens + cost > tokenBudget && kept.isNotEmpty()) break
+            tokens += cost
+            kept.addFirst(WireMessage(m.role, m.content))
+        }
+        return kept.toList()
+    }
 
     suspend fun maybeAutoTitle(cid: Long, firstMessage: String) {
         val c = db.conversations().byId(cid) ?: return

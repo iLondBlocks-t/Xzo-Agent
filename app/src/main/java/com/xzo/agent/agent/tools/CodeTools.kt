@@ -20,7 +20,7 @@ import kotlinx.serialization.json.JsonObject
  * Two execution paths:
  *  1. **Local** – pure math/statistics expressions are evaluated on-device by
  *     [Calc], instantly and offline.
- *  2. **Remote** – anything else is delegated to Groq `compound`, whose
+ *  2. **Remote** – anything else is delegated to the cloud sandbox, whose
  *     server-side Python sandbox actually runs the code and returns the output.
  */
 object CodeExecutionTool : AgentTool {
@@ -51,11 +51,11 @@ object CodeExecutionTool : AgentTool {
             }
         }
 
-        // 2. Remote sandbox via Groq Compound.
+        // 2. Remote sandbox via the cloud engine.
         if (!ctx.llm.hasKeyFor(Provider.GROQ)) {
             return ToolResult.fail(
-                "No Groq key configured, so the Python sandbox is unavailable. " +
-                    "Only plain math expressions can run offline."
+                "The cloud sandbox is not connected, so only plain math expressions can be computed offline. " +
+                    "Add an access key in Settings to unlock full code execution."
             )
         }
         return try {

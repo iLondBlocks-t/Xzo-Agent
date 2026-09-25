@@ -74,7 +74,8 @@ fun ChatScreen(
     onOpenModels: () -> Unit,
     onMic: () -> Unit,
     onOpenLibrary: () -> Unit = {},
-    onCamera: () -> Unit = {}
+    onCamera: () -> Unit = {},
+    onOpenConnect: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -113,10 +114,12 @@ fun ChatScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                vm.modelLabel(state.settings.primaryModel),
+                                state.rateLimit?.summary()
+                                    ?: vm.modelLabel(state.settings.primaryModel),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     },
@@ -134,6 +137,9 @@ fun ChatScreen(
                                 DropdownMenuItem(
                                     text = { Text("Export as markdown") },
                                     onClick = { menuOpen = false; vm.exportCurrent() })
+                                DropdownMenuItem(
+                                    text = { Text("Export as PDF") },
+                                    onClick = { menuOpen = false; vm.exportPdf() })
                                 DropdownMenuItem(
                                     text = { Text("Clear messages") },
                                     onClick = { menuOpen = false; vm.clearCurrent() })
@@ -237,7 +243,7 @@ fun ChatScreen(
             ) {
                 val (groqOk, orOk) = vm.keyStatus()
                 if (!groqOk && !orOk) {
-                    item { SetupNotice(onOpenSettings = onOpenSettings) }
+                    item { SetupNotice(onOpenSettings = onOpenConnect) }
                 }
 
                 if (state.messages.isEmpty() && !state.busy) {
@@ -385,11 +391,11 @@ private fun SetupNotice(onOpenSettings: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable { onOpenSettings() }
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text("No API key configured", style = MaterialTheme.typography.titleMedium)
+            Text("Xzo is not connected yet", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.size(6.dp))
             Text(
-                "Add GROQ_API_KEY and OPENROUTER_API_KEY as GitHub Actions secrets and rebuild, " +
-                    "or tap here to paste a key into Settings. Both providers have a free tier.",
+                "Tap here to paste an access key and test the connection. On-device features — reading " +
+                    "photos and PDFs, offline translation, the calculator — already work.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -440,7 +446,7 @@ private fun EmptyState(onSuggestion: (String) -> Unit) {
             }
         }
         Text(
-            "Free & unlimited: this app never charges or caps you. Real limits come only from the Groq / OpenRouter free tiers.",
+            "Free and unlimited: Xzo never charges you, never shows ads and sets no quota of its own.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp)

@@ -38,10 +38,11 @@ jobs:
           set -o pipefail
           ./gradlew testDebugUnitTest --stacktrace 2>&1 | tee /tmp/build.log
 
-      - name: Build APKs (arm32 only)
+      - name: Build the app (arm32 only)
         run: |
           set -o pipefail
-          ./gradlew assembleRelease assembleDebug --stacktrace 2>&1 | tee -a /tmp/build.log
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee -a /tmp/build.log
+          echo "Built:"; ls -lh app/build/outputs/apk/release/
 
       - name: Report build log on failure
         if: failure()
@@ -78,18 +79,11 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
 
-      - name: Upload release APK artifact
+      # Exactly one artifact: the app. It is always signed (release keystore when the
+      # signing secrets exist, otherwise the standard debug key) so it always installs.
+      - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-arm32
+          name: Xzo-Agent
           path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-
-      # The debug APK is signed with the standard Android debug key, so it can be
-      # installed on a phone immediately — useful before you create a keystore.
-      - name: Upload debug APK artifact (installable without a keystore)
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-arm32
-          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

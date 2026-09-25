@@ -190,9 +190,8 @@ fun WorkspaceScreen(state: ChatUiState, vm: ChatViewModel, onBack: () -> Unit) {
                         StatCard("Fallback model", vm.modelLabel(state.settings.fallbackModel))
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Xzo never charges you and sets no quota of its own. Usage is limited only by the " +
-                                "free tiers of Groq and OpenRouter; on HTTP 429 the app backs off, retries and " +
-                                "switches provider automatically.",
+                            "Xzo never charges you and sets no quota of its own. When a compute route is saturated it " +
+                                "backs off, retries and switches to a backup route automatically.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

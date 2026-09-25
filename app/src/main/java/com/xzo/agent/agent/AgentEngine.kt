@@ -454,7 +454,7 @@ class AgentEngine(
                     } else {
                         llm.complete(spec, req)
                     }
-                    // Surface Groq server-side tool executions in the trace.
+                    // Surface the primary route server-side tool executions in the trace.
                     result.executedTools.forEach { et ->
                         val hits = et.searchResults?.results?.size ?: 0
                         val code = et.codeResults?.firstOrNull()?.text
@@ -581,11 +581,24 @@ class AgentEngine(
     }
 
     private fun friendlyError(t: Throwable): String = when {
+        t is LlmException && t.missingKey ->
+            "🔑 **Xzo is not connected yet.**\n\nNo access key is saved, so there is no cloud brain to think " +
+                "with. Open **Settings → Access keys**, paste a key and tap **Test connection**.\n\n" +
+                "Everything that runs on the device — reading text from photos, offline translation, the " +
+                "calculator and your saved files — keeps working without a key."
+
+        t is LlmException && t.rejectedKey ->
+            "🔑 **That access key was refused.**\n\nThree things cause this:\n" +
+                "1. the key was only partly copied (they are long — copy all of it),\n" +
+                "2. the key was deleted or regenerated,\n" +
+                "3. the key was posted somewhere public and got disabled automatically.\n\n" +
+                "Create a new key, paste it in **Settings → Access keys**, then tap **Test connection** — " +
+                "it will tell you immediately whether the new key works."
+
         t is LlmException && t.rateLimited ->
-            "⚠️ Both providers are rate limited right now (free tier). Wait a few seconds and tap retry — " +
-                "the app itself never charges or caps you."
-        t is LlmException && (t.httpCode == 401 || t.httpCode == 403) ->
-            "⚠️ The API key was rejected. Add a valid key in Settings, or rebuild with the GitHub secrets set."
+            "⏳ **Every route is at capacity right now.**\n\nXzo already retried and switched routes. " +
+                "Wait a few seconds and tap retry. Xzo itself never charges or caps you."
+
         t is LlmException -> "⚠️ ${t.message}"
         else -> "⚠️ Unexpected error: ${t.message ?: t::class.java.simpleName}"
     }

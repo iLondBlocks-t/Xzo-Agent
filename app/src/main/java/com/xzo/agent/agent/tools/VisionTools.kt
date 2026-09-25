@@ -16,7 +16,7 @@ import kotlinx.serialization.json.JsonObject
  * `analyze_image`
  *
  * Lets *any* selected model work with pictures: the image is routed to a
- * vision-capable model (Qwen 3.8 27B on Groq, Gemma 4 on OpenRouter) and the
+ * vision-capable model (Qwen 3.8 27B on the primary route, Gemma 4 on the backup route) and the
  * detailed description is handed back into the agent loop as text.
  */
 object AnalyzeImageTool : AgentTool {

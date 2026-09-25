@@ -1,13 +1,17 @@
 package com.xzo.agent.data.remote
 
+/**
+ * Compute back-ends. Only the Xzo-facing names are ever shown in the app;
+ * the endpoints are an implementation detail.
+ */
 enum class Provider(val label: String, val endpoint: String, val modelsEndpoint: String) {
     GROQ(
-        "Groq",
+        "Xzo Core",
         "https://api.groq.com/openai/v1/chat/completions",
         "https://api.groq.com/openai/v1/models"
     ),
     OPENROUTER(
-        "OpenRouter",
+        "Xzo Relay",
         "https://openrouter.ai/api/v1/chat/completions",
         "https://openrouter.ai/api/v1/models"
     )
@@ -19,7 +23,7 @@ data class ModelSpec(
     val label: String,
     val description: String,
     /**
-     * Groq server-side tools this model supports: "browser_search" (live web,
+     * server-side tools this model supports: "browser_search" (live web,
      * powered by Exa) and "code_interpreter" (sandboxed Python, powered by E2B).
      * Sent as `{"type": "..."}` entries in the `tools` array.
      */
@@ -38,17 +42,17 @@ data class ModelSpec(
 
 object ModelCatalog {
 
-    /* ----------------------------- Groq ----------------------------- */
+    /* ----------------------------- the primary route ----------------------------- */
 
     /**
-     * Flagship open-weight model on Groq with built-in browser search and a
+     * Flagship open-weight model on the primary route with built-in browser search and a
      * Python sandbox — the direct successor to the retired `groq/compound`.
      */
     val GPT_OSS_120B = ModelSpec(
         id = "openai/gpt-oss-120b",
         provider = Provider.GROQ,
-        label = "GPT-OSS 120B (agentic)",
-        description = "Groq flagship. Built-in browser search + Python sandbox, strong reasoning. Best default.",
+        label = "Xzo Ultra",
+        description = "The flagship brain. Live web browsing, a real code sandbox and deep reasoning. Best default.",
         builtInTools = listOf("browser_search", "code_interpreter"),
         contextTokens = 131072,
         reasoning = true
@@ -57,8 +61,8 @@ object ModelCatalog {
     val GPT_OSS_20B = ModelSpec(
         id = "openai/gpt-oss-20b",
         provider = Provider.GROQ,
-        label = "GPT-OSS 20B (fast agentic)",
-        description = "~1000 tok/s. Same built-in search + code tools, lighter on rate limits.",
+        label = "Xzo Swift",
+        description = "Near-instant replies with the same web and code powers. Lightest on your free quota.",
         builtInTools = listOf("browser_search", "code_interpreter"),
         contextTokens = 131072,
         reasoning = true
@@ -67,8 +71,8 @@ object ModelCatalog {
     val QWEN_38_27B = ModelSpec(
         id = "qwen/qwen3.8-27b",
         provider = Provider.GROQ,
-        label = "Qwen 3.8 27B",
-        description = "Multilingual (excellent Arabic), tool use, JSON mode. Preview model.",
+        label = "Xzo Lingua",
+        description = "Multilingual specialist with excellent Arabic, plus image understanding.",
         contextTokens = 131072,
         reasoning = true,
         preview = true,
@@ -78,8 +82,8 @@ object ModelCatalog {
     val GPT_OSS_SAFEGUARD_20B = ModelSpec(
         id = "openai/gpt-oss-safeguard-20b",
         provider = Provider.GROQ,
-        label = "GPT-OSS Safeguard 20B",
-        description = "Safety-tuned 20B with browser search. Preview model.",
+        label = "Xzo Guard",
+        description = "Safety-tuned variant with live web browsing.",
         builtInTools = listOf("browser_search"),
         contextTokens = 131072,
         preview = true
@@ -88,13 +92,13 @@ object ModelCatalog {
     /** Speech-to-text model used by the microphone button (not a chat model). */
     const val WHISPER_TURBO = "whisper-large-v3-turbo"
 
-    /* -------------------------- OpenRouter -------------------------- */
+    /* -------------------------- the backup route -------------------------- */
 
     val OR_GPT_OSS_120B_FREE = ModelSpec(
         id = "openai/gpt-oss-120b:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · GPT-OSS 120B (free)",
-        description = "Free mirror of the flagship open-weight model. Reliable tool use.",
+        label = "Xzo Ultra · Relay",
+        description = "Backup route to the flagship brain. Used automatically if the main route is busy.",
         contextTokens = 131072,
         free = true
     )
@@ -102,8 +106,8 @@ object ModelCatalog {
     val OR_LLAMA_FREE = ModelSpec(
         id = "meta-llama/llama-3.3-70b-instruct:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Llama 3.3 70B (free)",
-        description = "Long-standing free multilingual chat model.",
+        label = "Xzo Classic · Relay",
+        description = "Dependable multilingual backup route.",
         contextTokens = 131072,
         free = true
     )
@@ -111,8 +115,8 @@ object ModelCatalog {
     val OR_GEMMA_VISION_FREE = ModelSpec(
         id = "google/gemma-4-31b-it:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Gemma 4 31B (free, vision)",
-        description = "Free multimodal model: send images with your question. 140+ languages.",
+        label = "Xzo Vision · Relay",
+        description = "Sees images and speaks 140+ languages. Backup route for picture questions.",
         contextTokens = 262144,
         free = true,
         vision = true
@@ -121,8 +125,8 @@ object ModelCatalog {
     val OR_QWEN_NEXT_FREE = ModelSpec(
         id = "qwen/qwen3-next-80b-a3b-instruct:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Qwen3 Next 80B (free)",
-        description = "Free, strong at long multi-turn tool workflows and Arabic.",
+        label = "Xzo Lingua · Relay",
+        description = "Backup route tuned for long multi-step work and Arabic.",
         contextTokens = 262144,
         free = true
     )
@@ -130,8 +134,8 @@ object ModelCatalog {
     val OR_GPT_OSS_20B_FREE = ModelSpec(
         id = "openai/gpt-oss-20b:free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · GPT-OSS 20B (free)",
-        description = "Lightweight free fallback, good at code.",
+        label = "Xzo Swift · Relay",
+        description = "Light, fast backup route. Good at code.",
         contextTokens = 131072,
         free = true
     )
@@ -139,8 +143,8 @@ object ModelCatalog {
     val OR_AUTO_FREE = ModelSpec(
         id = "openrouter/free",
         provider = Provider.OPENROUTER,
-        label = "OpenRouter · Auto (free)",
-        description = "Lets OpenRouter pick whichever free model is currently available.",
+        label = "Xzo Auto · Relay",
+        description = "Last-resort route: always picks whatever capacity is free right now.",
         contextTokens = 65536,
         free = true
     )
@@ -158,7 +162,7 @@ object ModelCatalog {
     val DEFAULT_FALLBACK = OR_GPT_OSS_120B_FREE.id
 
     /**
-     * Model IDs Groq has decommissioned, mapped to their live replacement.
+     * Model IDs the primary route has decommissioned, mapped to their live replacement.
      * Stored settings and old conversations are migrated transparently so the
      * app never fires a request that is guaranteed to 400.
      */
@@ -180,6 +184,18 @@ object ModelCatalog {
     )
 
     fun migrate(id: String): String = RETIRED[id] ?: id
+
+    /**
+     * Turns a raw back-end identifier into an Xzo-style name. Nothing in the UI
+     * should ever surface a vendor or a model number.
+     */
+    fun friendlyName(id: String, vendorName: String? = null): String {
+        val base = id.substringAfterLast('/').removeSuffix(":free")
+        val pretty = base.split('-', '.', '_')
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
+        return "Xzo " + pretty.take(22).ifBlank { "Model" }
+    }
 
     /** Models discovered at runtime from the provider /models endpoints. */
     @Volatile

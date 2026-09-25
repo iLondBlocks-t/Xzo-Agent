@@ -20,7 +20,7 @@ data class SearchHit(
 )
 
 /**
- * Key-less web access used as the fallback path when Groq Compound's built-in
+ * Key-less web access used as the fallback path when the cloud engine's built-in
  * search is unavailable (e.g. when the user picked a plain chat model).
  *
  * Sources, tried in order:
@@ -60,7 +60,7 @@ class WebClient {
             val root = json.parseToJsonElement(body).jsonObject
             root["AbstractText"]?.jsonPrimitive?.contentOrNullSafe()?.takeIf { it.isNotBlank() }?.let { abs ->
                 val url = root["AbstractURL"]?.jsonPrimitive?.contentOrNullSafe().orEmpty()
-                val src = root["AbstractSource"]?.jsonPrimitive?.contentOrNullSafe() ?: "DuckDuckGo"
+                val src = root["AbstractSource"]?.jsonPrimitive?.contentOrNullSafe() ?: "Web"
                 out[url.ifBlank { src }] = SearchHit(src, url, abs)
             }
             (root["RelatedTopics"] as? JsonArray)?.forEach { el ->

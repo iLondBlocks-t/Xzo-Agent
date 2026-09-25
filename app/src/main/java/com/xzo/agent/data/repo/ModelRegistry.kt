@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 /**
  * Keeps the model list fresh.
  *
- * Provider catalogues churn fast (Groq retired `groq/compound` on 2026-09-21 and the
+ * Provider catalogues churn fast (the primary route retired `groq/compound` on 2026-09-21 and the
  * Llama 3.x line on 2026-08-16), so the app never relies solely on hard-coded IDs:
  * it queries each provider's `/models` endpoint and merges the result with the
  * curated catalogue.
