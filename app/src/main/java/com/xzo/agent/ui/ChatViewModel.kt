@@ -58,7 +58,10 @@ data class ChatUiState(
     val followUps: List<String> = emptyList(),
     /** Brain pinned to this conversation; null means follow the global setting. */
     val conversationModel: String? = null,
-    val undoDelete: com.xzo.agent.data.db.ConversationEntity? = null
+    val undoDelete: com.xzo.agent.data.db.ConversationEntity? = null,
+    val online: Boolean = true,
+    val micLevel: Float = 0f,
+    val jumpToMessageId: Long? = null
 )
 
 enum class VoiceState { IDLE, RECORDING, TRANSCRIBING }
@@ -113,6 +116,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             container.modelRegistry.models.collectLatest { m -> _state.update { it.copy(models = m) } }
+        }
+        viewModelScope.launch {
+            container.connectivity.online.collectLatest { up ->
+                _state.update { it.copy(online = up) }
+            }
         }
         viewModelScope.launch {
             com.xzo.agent.data.remote.RateLimitTracker.groq.collectLatest { snap ->
@@ -190,6 +198,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val saved = repo.exportConversation(_state.value.conversationId)
         banner(if (saved != null) "Exported to ${saved.name}" else "Export cancelled")
     }
+
+    fun openSearchResult(m: MessageEntity) {
+        select(m.conversationId)
+        _state.update { it.copy(jumpToMessageId = m.id, searchQuery = "", searchResults = emptyList()) }
+    }
+
+    fun clearJump() = _state.update { it.copy(jumpToMessageId = null) }
 
     fun search(q: String) = viewModelScope.launch {
         _state.update { it.copy(searchQuery = q) }
@@ -321,6 +336,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun send(text: String = _state.value.input, reuseText: Boolean = false) {
         val prompt = text.trim()
         if (prompt.isEmpty() || _state.value.busy) return
+        if (!container.connectivity.isOnline()) {
+            banner("You are offline — on-device tools still work, cloud thinking does not")
+        }
         val s = _state.value
         val attachments = s.attachments
 
@@ -534,6 +552,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 if (started) {
                     _state.update { it.copy(voice = VoiceState.RECORDING) }
                     banner("Listening… tap the mic again to stop")
+                    viewModelScope.launch {
+                        while (_state.value.voice == VoiceState.RECORDING) {
+                            _state.update { it.copy(micLevel = container.recorder.level()) }
+                            kotlinx.coroutines.delay(90)
+                        }
+                        _state.update { it.copy(micLevel = 0f) }
+                    }
                 } else {
                     banner("Could not start the microphone")
                 }

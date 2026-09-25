@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -95,6 +96,16 @@ fun ChatScreen(
         if (target > 0) listState.animateScrollToItem((target - 1).coerceAtLeast(0))
     }
 
+    LaunchedEffect(state.jumpToMessageId, state.messages.size) {
+        val target = state.jumpToMessageId ?: return@LaunchedEffect
+        val index = state.messages.indexOfFirst { it.id == target }
+        if (index >= 0) {
+            listState.animateScrollToItem(index)
+            delay(2200)
+            vm.clearJump()
+        }
+    }
+
     LaunchedEffect(state.banner) {
         if (state.banner != null) { delay(2600); vm.banner(null) }
     }
@@ -132,6 +143,15 @@ fun ChatScreen(
                         }
                     },
                     actions = {
+                        if (!state.online) {
+                            Icon(
+                                Icons.Rounded.CloudOff,
+                                contentDescription = "Offline",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
                         IconButton(onClick = onOpenLibrary) {
                             Icon(Icons.Rounded.AutoAwesome, "Prompt library")
                         }
@@ -266,6 +286,7 @@ fun ChatScreen(
                         onRemoveAttachment = vm::removeAttachment,
                         enterSends = state.settings.enterSends,
                         voice = state.voice,
+                        micLevel = state.micLevel,
                         onMic = onMic
                     )
                 }
@@ -300,6 +321,7 @@ fun ChatScreen(
 
                 items(state.messages, key = { it.id }) { m ->
                     MessageBubble(
+                        highlighted = state.jumpToMessageId == m.id,
                         message = m,
                         trace = vm.traceOf(m),
                         showTrace = state.settings.showTrace,

@@ -101,7 +101,7 @@ fun ChatDrawer(
                         Column(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelect(m.conversationId) }
+                                .clickable { vm.openSearchResult(m); onSelect(m.conversationId) }
                                 .padding(vertical = 6.dp)
                         ) {
                             Text(

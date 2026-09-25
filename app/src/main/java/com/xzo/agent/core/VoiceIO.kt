@@ -51,6 +51,12 @@ class VoiceRecorder(private val context: Context) {
         return f?.takeIf { it.exists() && it.length() > 1024 }
     }
 
+    /** Normalised 0..1 microphone level, for the live input indicator. */
+    fun level(): Float = runCatching {
+        val amp = recorder?.maxAmplitude ?: return 0f
+        (amp / 12000f).coerceIn(0f, 1f)
+    }.getOrDefault(0f)
+
     fun cancel() {
         stop()?.delete()
     }

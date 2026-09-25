@@ -64,6 +64,7 @@ fun InputBar(
     onRemoveAttachment: (String) -> Unit,
     enterSends: Boolean,
     voice: com.xzo.agent.ui.VoiceState,
+    micLevel: Float = 0f,
     onMic: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -174,7 +175,24 @@ fun InputBar(
                 IconButton(onClick = onMic, modifier = Modifier.size(44.dp)) {
                     when (voice) {
                         com.xzo.agent.ui.VoiceState.RECORDING ->
-                            ThinkingDots(dotSize = 6)
+                            Box(contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier
+                                        .size((20 + micLevel * 18).dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.onSurface.copy(
+                                                alpha = 0.10f + micLevel * 0.22f
+                                            ),
+                                            CircleShape
+                                        )
+                                )
+                                Icon(
+                                    Icons.Rounded.Mic,
+                                    contentDescription = t.voiceInput,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         com.xzo.agent.ui.VoiceState.TRANSCRIBING ->
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),

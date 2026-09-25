@@ -67,6 +67,7 @@ fun MessageBubble(
     speaking: Boolean = false,
     onShare: (String) -> Unit,
     onOpenArtifact: (String) -> Unit,
+    highlighted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isUser = message.role == "user"
@@ -98,8 +99,9 @@ fun MessageBubble(
                 tonalElevation = if (isUser) 0.dp else 2.dp,
                 shadowElevation = 1.dp,
                 border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    if (highlighted) 2.dp else 1.dp,
+                    if (highlighted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                 ),
                 modifier = Modifier
                     .widthIn(max = 480.dp)

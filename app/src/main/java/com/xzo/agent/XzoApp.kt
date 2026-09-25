@@ -76,6 +76,7 @@ class AppContainer(app: Application) {
     val speaker = com.xzo.agent.core.Speaker(app)
     val modelRegistry = com.xzo.agent.data.repo.ModelRegistry(llm, scope)
     val notifier = com.xzo.agent.core.Notifier(app)
+    val connectivity = com.xzo.agent.core.Connectivity(app)
     val backup = com.xzo.agent.data.repo.BackupManager(db, files, settingsRepo)
 
     @Volatile
