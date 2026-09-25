@@ -40,6 +40,9 @@ class FileBridge(private val appContext: Context) {
         }
 
         data class OpenTree(override val id: Long) : Request
+
+        /** Take a photo with the camera; [target] is the FileProvider Uri to write to. */
+        data class Capture(override val id: Long, val target: Uri) : Request
     }
 
     val requests = MutableSharedFlow<Request>(extraBufferCapacity = 8)
@@ -103,6 +106,23 @@ class FileBridge(private val appContext: Context) {
             val mime = appContext.contentResolver.getType(uri) ?: "application/octet-stream"
             val name = displayName(uri) ?: uri.lastPathSegment ?: "file"
 
+            // PDFs are rasterised page by page and OCR'd on-device.
+            if (com.xzo.agent.core.PdfReader.isPdf(mime, name)) {
+                val extracted = com.xzo.agent.core.PdfReader.extract(appContext, uri)
+                val body = extracted?.text.orEmpty()
+                return@runCatching LoadedFile(
+                    uri = uri,
+                    name = name,
+                    mime = "application/pdf",
+                    text = when {
+                        body.isBlank() -> ""
+                        extracted?.truncated == true ->
+                            body.take(maxChars) + "\n…[only the first ${com.xzo.agent.core.PdfReader.DEFAULT_MAX_PAGES} pages were read]"
+                        else -> body.take(maxChars)
+                    }
+                )
+            }
+
             // Images are converted to an inline data URL for vision models.
             if (mime.startsWith("image/")) {
                 val dataUrl = com.xzo.agent.util.Images.toDataUrl(appContext, uri)
@@ -129,6 +149,24 @@ class FileBridge(private val appContext: Context) {
             }.orEmpty()
             LoadedFile(uri, name, mime, text)
         }.getOrNull()
+    }
+
+    /* ------------------------- camera ------------------------- */
+
+    /** Launch the camera, then load the photo as an inline image attachment. */
+    suspend fun capturePhoto(): LoadedFile? {
+        val id = ++counter
+        val dir = java.io.File(appContext.cacheDir, "camera").apply { mkdirs() }
+        val file = java.io.File(dir, "shot_${System.currentTimeMillis()}.jpg")
+        val target = runCatching {
+            androidx.core.content.FileProvider.getUriForFile(
+                appContext, "${appContext.packageName}.fileprovider", file
+            )
+        }.getOrNull() ?: return null
+
+        val uri = await(Request.Capture(id, target), timeoutMs = 3 * 60_000L) ?: return null
+        if (!file.exists() || file.length() < 512) return null
+        return readUri(uri)
     }
 
     /* ------------------------- folder access ------------------------- */

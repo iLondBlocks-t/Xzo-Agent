@@ -73,7 +73,8 @@ fun ChatScreen(
     onOpenSettings: () -> Unit,
     onOpenModels: () -> Unit,
     onMic: () -> Unit,
-    onOpenLibrary: () -> Unit = {}
+    onOpenLibrary: () -> Unit = {},
+    onCamera: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -213,6 +214,7 @@ fun ChatScreen(
                         onStop = vm::stop,
                         onAttach = { vm.attachFile() },
                         onAttachImage = { vm.attachFile(imagesOnly = true) },
+                        onCamera = onCamera,
                         busy = state.busy,
                         attachments = state.attachments,
                         onRemoveAttachment = vm::removeAttachment,

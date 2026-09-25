@@ -183,6 +183,26 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun capturePhoto() = viewModelScope.launch {
+        val loaded = container.files.capturePhoto()
+        if (loaded?.imageDataUrl == null) {
+            banner("No photo captured")
+            return@launch
+        }
+        _state.update {
+            it.copy(
+                attachments = it.attachments + Attachment(
+                    name = loaded.name,
+                    mime = loaded.mime,
+                    text = loaded.text,
+                    uri = loaded.uri.toString(),
+                    imageDataUrl = loaded.imageDataUrl
+                )
+            )
+        }
+        banner("Photo attached — ask about it, or say “read the text in this”")
+    }
+
     fun removeAttachment(uri: String) =
         _state.update { it.copy(attachments = it.attachments.filterNot { a -> a.uri == uri }) }
 

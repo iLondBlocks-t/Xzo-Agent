@@ -53,6 +53,13 @@ class MainActivity : ComponentActivity() {
             bridge.deliver(pendingRequestId, uri)
         }
 
+    private var pendingCaptureUri: Uri? = null
+
+    private val captureLauncher =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            bridge.deliver(pendingRequestId, if (success) pendingCaptureUri else null)
+        }
+
     private val openTreeLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
             bridge.deliver(pendingRequestId, uri)
@@ -76,6 +83,11 @@ class MainActivity : ComponentActivity() {
 
                     is FileBridge.Request.Open -> runCatching {
                         openDocLauncher.launch(req.mimes)
+                    }.onFailure { bridge.deliver(req.id, null) }
+
+                    is FileBridge.Request.Capture -> runCatching {
+                        pendingCaptureUri = req.target
+                        captureLauncher.launch(req.target)
                     }.onFailure { bridge.deliver(req.id, null) }
 
                     is FileBridge.Request.OpenTree -> runCatching {
@@ -165,7 +177,8 @@ class MainActivity : ComponentActivity() {
                             onOpenSettings = { showSettings = true },
                             onOpenModels = { showModels = true },
                             onMic = { vm.onMicTap(hasMicPermission()) },
-                            onOpenLibrary = { showLibrary = true }
+                            onOpenLibrary = { showLibrary = true },
+                            onCamera = { vm.capturePhoto() }
                         )
                     }
 

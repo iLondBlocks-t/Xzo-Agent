@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +55,7 @@ fun InputBar(
     onStop: () -> Unit,
     onAttach: () -> Unit,
     onAttachImage: () -> Unit = {},
+    onCamera: () -> Unit = {},
     busy: Boolean,
     attachments: List<Attachment>,
     onRemoveAttachment: (String) -> Unit,
@@ -124,6 +126,15 @@ fun InputBar(
                     Icon(
                         Icons.Rounded.Image,
                         contentDescription = "Attach an image",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(onClick = onCamera, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        Icons.Rounded.PhotoCamera,
+                        contentDescription = "Take a photo",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
