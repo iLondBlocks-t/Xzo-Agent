@@ -48,6 +48,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xzo.agent.util.Markdown
 
+/**
+ * Markdown renderer for a *streaming* answer.
+ *
+ * Re-parsing the whole document on every token is O(n) per token, i.e. O(n²) over
+ * a long reply — visibly janky on the 32-bit phones this app targets. Parsing is
+ * therefore throttled to meaningful increments while text is still arriving, and
+ * the final exact render happens once the stream completes.
+ */
+@Composable
+fun StreamingMarkdownText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface
+) {
+    // Re-parse at most every ~200 characters, or when a block clearly closed.
+    val parseKey = remember(text) {
+        val bucket = text.length / 200
+        val closed = text.endsWith("\n\n") || text.endsWith("```")
+        "$bucket-$closed"
+    }
+    val stable = remember(parseKey) { text }
+    MarkdownText(text = stable, modifier = modifier, color = color)
+}
+
 @Composable
 fun MarkdownText(
     text: String,

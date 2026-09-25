@@ -65,6 +65,7 @@ import com.xzo.agent.ui.ChatViewModel
 import com.xzo.agent.ui.components.GradientBackground
 import com.xzo.agent.ui.components.InputBar
 import com.xzo.agent.ui.components.MarkdownText
+import com.xzo.agent.ui.components.StreamingMarkdownText
 import com.xzo.agent.ui.components.MessageBubble
 import com.xzo.agent.ui.components.StreamingCaret
 import com.xzo.agent.ui.components.ThinkingDots
@@ -518,7 +519,7 @@ private fun LiveTurn(state: ChatUiState) {
                 shadowElevation = 1.dp
             ) {
                 Column(Modifier.padding(14.dp)) {
-                    MarkdownText(state.streamingText)
+                    StreamingMarkdownText(state.streamingText)
                     Spacer(Modifier.size(4.dp))
                     StreamingCaret()
                 }

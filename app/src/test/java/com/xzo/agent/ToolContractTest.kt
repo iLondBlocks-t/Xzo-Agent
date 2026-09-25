@@ -164,3 +164,35 @@ class ContinuationTest {
         }
     }
 }
+
+/** Attachment metadata must survive persistence, including legacy rows. */
+class AttachmentRefTest {
+
+    @Test
+    fun `round trips through json`() {
+        val list = listOf(
+            com.xzo.agent.agent.Attachment("photo.jpg", "image/jpeg", "[image]", "content://a", "data:image/jpeg;base64,AA"),
+            com.xzo.agent.agent.Attachment("notes.txt", "text/plain", "hello", "content://b")
+        )
+        val encoded = com.xzo.agent.agent.AttachmentRef.encode(list)!!
+        val decoded = com.xzo.agent.agent.AttachmentRef.decode(encoded)
+        assertEquals(2, decoded.size)
+        assertEquals("photo.jpg", decoded[0].name)
+        assertTrue(decoded[0].image)
+        assertTrue(!decoded[1].image)
+        assertEquals("content://b", decoded[1].uri)
+    }
+
+    @Test
+    fun `empty list encodes to null`() {
+        assertEquals(null, com.xzo.agent.agent.AttachmentRef.encode(emptyList()))
+        assertTrue(com.xzo.agent.agent.AttachmentRef.decode(null).isEmpty())
+    }
+
+    @Test
+    fun `legacy comma separated names still load`() {
+        val decoded = com.xzo.agent.agent.AttachmentRef.decode("a.txt, b.pdf")
+        assertEquals(listOf("a.txt", "b.pdf"), decoded.map { it.name })
+        assertTrue(decoded.none { it.image })
+    }
+}
